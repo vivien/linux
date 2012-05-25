@@ -183,6 +183,13 @@ config GPIO_STA2X11
 	  Say yes here to support the STA2x11/ConneXt GPIO device.
 	  The GPIO module has 128 GPIO pins with alternate functions.
 
+config GPIO_TS5500
+	tristate "TS-5500 DIO Headers support"
+	help
+	  This driver supports the 3 Digital I/O headers of the Technologic
+	  Systems TS-5500 platform: DIO1, DIO2, and the LCD port which may be
+	  used as a DIO header.
+
 config GPIO_XILINX
 	bool "Xilinx GPIO support"
 	depends on PPC_OF || MICROBLAZE
