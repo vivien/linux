@@ -7239,6 +7239,10 @@ S:	Supported
 F:	drivers/net/team/
 F:	include/linux/if_team.h
 
+TECHNOLOGIC SYSTEMS TS-5500 PLATFORM SUPPORT
+M:	Savoir-faire Linux Inc. <kernel@savoirfairelinux.com>
+S:	Maintained
+
 TEGRA SUPPORT
 M:	Stephen Warren <swarren@wwwdotorg.org>
 L:	linux-tegra@vger.kernel.org
