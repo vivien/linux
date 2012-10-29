@@ -26,6 +26,7 @@
 #include <linux/module.h>
 #include <linux/platform_data/gpio-ts5500.h>
 #include <linux/platform_data/max197.h>
+#include <linux/platform_data/sht15.h>
 #include <linux/platform_device.h>
 #include <linux/slab.h>
 
@@ -206,11 +207,19 @@ static struct resource ts5500_dio1_resource[] = {
 	DEFINE_RES_IRQ_NAMED(7, "DIO1 interrupt"),
 };
 
+static struct ts5500_dio_platform_data ts5500_dio1_pdata = {
+	.base = 0,
+	.strap = true,
+};
+
 static struct platform_device ts5500_dio1_pdev = {
 	.name = "ts5500-dio1",
 	.id = -1,
 	.resource = ts5500_dio1_resource,
 	.num_resources = 1,
+	.dev = {
+		.platform_data = &ts5500_dio1_pdata,
+	},
 };
 
 static struct resource ts5500_dio2_resource[] = {
@@ -276,6 +285,43 @@ static struct platform_device ts5500_adc_pdev = {
 	},
 };
 
+/* Setup SC520 to trigger SHT15 GPIO data line IRQ on falling edge */
+static int ts5500_setup_sc520_pic(int irq) {
+	void *intpinpol;
+	u16 word;
+
+#define MMCR_BASE	0xfffef000
+#define INTPINPOL	(MMCR_BASE + 0xd10)
+	intpinpol = ioremap(INTPINPOL, 2);
+	if (!intpinpol)
+		return -ENOMEM;
+
+	word = ioread16(intpinpol);
+	word |= (1 << irq);
+	iowrite16(word, intpinpol);
+
+	iounmap(intpinpol);
+
+	return 0;
+}
+
+static struct sht15_platform_data ts5500_sht15_pdata = {
+	.gpio_data = 0,
+	.gpio_sck = 8,
+	.supply_mv = 5000,
+	.checksum = true,
+	.no_otp_reload = false,
+	.low_resolution = false,
+};
+
+static struct platform_device ts5500_sht15_pdev = {
+	.name = "sht15",
+	.id = -1,
+	.dev = {
+		.platform_data = &ts5500_sht15_pdata,
+	},
+};
+
 static int __init ts5500_init(void)
 {
 	struct platform_device *pdev;
@@ -290,6 +336,12 @@ static int __init ts5500_init(void)
 	err = ts5500_check_signature();
 	if (err)
 		return err;
+
+	err = ts5500_setup_sc520_pic(7);
+	if (err) {
+		pr_err("Failed to setup ElanSC520 PIC\n");
+		return err;
+	}
 
 	pdev = platform_device_register_simple("ts5500", -1, NULL, 0);
 	if (IS_ERR(pdev))
@@ -317,6 +369,10 @@ static int __init ts5500_init(void)
 	ts5500_dio2_pdev.dev.parent = &pdev->dev;
 	if (platform_device_register(&ts5500_dio2_pdev))
 		dev_warn(&pdev->dev, "DIO2 block registration failed\n");
+
+	ts5500_sht15_pdev.dev.parent = &pdev->dev;
+	if (platform_device_register(&ts5500_sht15_pdev))
+		dev_warn(&pdev->dev, "SHT15 registration failed\n");
 
 	if (led_classdev_register(&pdev->dev, &ts5500_led_cdev))
 		dev_warn(&pdev->dev, "LED registration failed\n");
