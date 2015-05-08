@@ -63,13 +63,9 @@ static int mv88e6352_setup_global(struct dsa_switch *ds)
 	REG_WRITE(REG_GLOBAL, GLOBAL_CONTROL,
 		  GLOBAL_CONTROL_PPU_ENABLE | GLOBAL_CONTROL_DISCARD_EXCESS);
 
-	/* Configure the upstream port, and configure the upstream
-	 * port as the port to which ingress and egress monitor frames
-	 * are to be sent.
-	 */
-	reg = upstream_port << GLOBAL_MONITOR_CONTROL_INGRESS_SHIFT |
-		upstream_port << GLOBAL_MONITOR_CONTROL_EGRESS_SHIFT |
-		upstream_port << GLOBAL_MONITOR_CONTROL_ARP_SHIFT;
+	/* Configure the upstream port, and disable policy mirroring. */
+	reg = upstream_port << GLOBAL_MONITOR_CONTROL_ARP_SHIFT |
+		GLOBAL_MONITOR_CONTROL_MIRROR_DISABLED;
 	REG_WRITE(REG_GLOBAL, GLOBAL_MONITOR_CONTROL, reg);
 
 	/* Disable remote management for now, and set the switch's
