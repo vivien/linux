@@ -1408,7 +1408,8 @@ static int mv88e6xxx_setup_port(struct dsa_switch *ds, int port)
 	    mv88e6xxx_6185_family(ds))
 		reg = PORT_CONTROL_IGMP_MLD_SNOOP |
 		PORT_CONTROL_USE_TAG | PORT_CONTROL_USE_IP |
-		PORT_CONTROL_STATE_FORWARDING;
+		PORT_CONTROL_STATE_FORWARDING |
+		PORT_CONTROL_EGRESS_FLOODS_NO_UNKNOWN_UNICAST_DA;
 	if (dsa_is_cpu_port(ds, port)) {
 		if (mv88e6xxx_6095_family(ds) || mv88e6xxx_6185_family(ds))
 			reg |= PORT_CONTROL_DSA_TAG;
