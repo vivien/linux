@@ -9,6 +9,7 @@
  */
 
 #include <linux/etherdevice.h>
+#include <linux/if_vlan.h>
 #include <linux/list.h>
 #include <linux/slab.h>
 #include "dsa_priv.h"
@@ -20,6 +21,10 @@ static struct sk_buff *edsa_xmit(struct sk_buff *skb, struct net_device *dev)
 {
 	struct dsa_slave_priv *p = netdev_priv(dev);
 	u8 *edsa_header;
+
+	skb = vlan_hwaccel_push_inside(skb);
+	if (unlikely(!skb))
+		return NULL;
 
 	/*
 	 * Convert the outermost 802.1q tag to a DSA tag and prepend
