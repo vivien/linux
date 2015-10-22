@@ -437,6 +437,8 @@ struct mv88e6xxx_priv_state {
 	DECLARE_BITMAP(port_state_update_mask, DSA_MAX_PORTS);
 
 	struct work_struct bridge_work;
+
+	struct dentry *dbgfs;
 };
 
 enum stat_type {
