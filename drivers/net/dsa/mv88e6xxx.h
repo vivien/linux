@@ -28,6 +28,10 @@
 #define SMI_CMD_OP_45_READ_DATA_INC	((3 << 10) | SMI_CMD_BUSY)
 #define SMI_DATA		0x01
 
+/* Fiber/SERDES Registers are located at SMI address F, page 1 */
+#define REG_FIBER_SERDES	0x0f
+#define PAGE_FIBER_SERDES	0x01
+
 #define REG_PORT(p)		(0x10 + (p))
 #define PORT_STATUS		0x00
 #define PORT_STATUS_PAUSE_EN	BIT(15)
@@ -429,6 +433,8 @@ struct mv88e6xxx_priv_state {
 	unsigned long port_state_update_mask;
 
 	struct work_struct bridge_work;
+
+	struct dentry *dbgfs;
 };
 
 enum stat_type {
