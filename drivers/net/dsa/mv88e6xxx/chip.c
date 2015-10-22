@@ -2482,6 +2482,8 @@ static int mv88e6390_setup_errata(struct mv88e6xxx_chip *chip)
 	return mv88e6xxx_software_reset(chip);
 }
 
+#include "debugfs.c"
+
 static int mv88e6xxx_setup(struct dsa_switch *ds)
 {
 	struct mv88e6xxx_chip *chip = ds->priv;
@@ -2595,6 +2597,10 @@ static int mv88e6xxx_setup(struct dsa_switch *ds)
 	}
 
 	err = mv88e6xxx_stats_setup(chip);
+	if (err)
+		goto unlock;
+
+	err = mv88e6xxx_dbg_init_chip(chip);
 	if (err)
 		goto unlock;
 
@@ -4882,6 +4888,8 @@ static void mv88e6xxx_remove(struct mdio_device *mdiodev)
 	struct dsa_switch *ds = dev_get_drvdata(&mdiodev->dev);
 	struct mv88e6xxx_chip *chip = ds->priv;
 
+	mv88e6xxx_dbg_destroy_chip(chip);
+
 	if (chip->info->ptp_support) {
 		mv88e6xxx_hwtstamp_free(chip);
 		mv88e6xxx_ptp_free(chip);
@@ -4928,6 +4936,18 @@ static struct mdio_driver mv88e6xxx_driver = {
 };
 
 mdio_module_driver(mv88e6xxx_driver);
+
+static int __init mv88e6xxx_init(void)
+{
+	return mv88e6xxx_dbg_init_module();
+}
+module_init(mv88e6xxx_init);
+
+static void __exit mv88e6xxx_cleanup(void)
+{
+	mv88e6xxx_dbg_destroy_module();
+}
+module_exit(mv88e6xxx_cleanup);
 
 MODULE_AUTHOR("Lennert Buytenhek <buytenh@wantstofly.org>");
 MODULE_DESCRIPTION("Driver for Marvell 88E6XXX ethernet switch chips");
