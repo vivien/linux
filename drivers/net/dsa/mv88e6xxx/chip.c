@@ -32,8 +32,10 @@
 #include <net/dsa.h>
 
 #include "chip.h"
+#include "debugfs.h"
 #include "global1.h"
 #include "global2.h"
+#include "global3.h"
 #include "hwtstamp.h"
 #include "phy.h"
 #include "port.h"
@@ -781,7 +783,11 @@ static int mv88e6xxx_stats_snapshot(struct mv88e6xxx_chip *chip, int port)
 	return chip->info->ops->stats_snapshot(chip, port);
 }
 
+#ifdef CONFIG_NET_DSA_MV88E6XXX_DEBUGFS
+struct mv88e6xxx_hw_stat mv88e6xxx_hw_stats[] = {
+#else
 static struct mv88e6xxx_hw_stat mv88e6xxx_hw_stats[] = {
+#endif
 	{ "in_good_octets",		8, 0x00, STATS_TYPE_BANK0, },
 	{ "in_bad_octets",		4, 0x02, STATS_TYPE_BANK0, },
 	{ "in_unicast",			4, 0x04, STATS_TYPE_BANK0, },
@@ -843,10 +849,21 @@ static struct mv88e6xxx_hw_stat mv88e6xxx_hw_stats[] = {
 	{ "out_management",		4, 0x1f, STATS_TYPE_BANK1, },
 };
 
+#ifdef CONFIG_NET_DSA_MV88E6XXX_DEBUGFS
+int mv88e6xxx_hw_stats_size = ARRAY_SIZE(mv88e6xxx_hw_stats);
+#endif
+
+#ifdef CONFIG_NET_DSA_MV88E6XXX_DEBUGFS
+uint64_t _mv88e6xxx_get_ethtool_stat(struct mv88e6xxx_chip *chip,
+				     struct mv88e6xxx_hw_stat *s,
+				     int port, u16 bank1_select,
+				     u16 histogram)
+#else
 static uint64_t _mv88e6xxx_get_ethtool_stat(struct mv88e6xxx_chip *chip,
 					    struct mv88e6xxx_hw_stat *s,
 					    int port, u16 bank1_select,
 					    u16 histogram)
+#endif
 {
 	u32 low;
 	u32 high = 0;
@@ -1049,8 +1066,13 @@ static int mv88e6xxx_stats_get_stats(struct mv88e6xxx_chip *chip, int port,
 	return j;
 }
 
+#ifdef CONFIG_NET_DSA_MV88E6XXX_DEBUGFS
+int mv88e6095_stats_get_stats(struct mv88e6xxx_chip *chip, int port,
+			      uint64_t *data)
+#else
 static int mv88e6095_stats_get_stats(struct mv88e6xxx_chip *chip, int port,
 				     uint64_t *data)
+#endif
 {
 	return mv88e6xxx_stats_get_stats(chip, port, data,
 					 STATS_TYPE_BANK0 | STATS_TYPE_PORT,
@@ -1064,8 +1086,13 @@ static int mv88e6250_stats_get_stats(struct mv88e6xxx_chip *chip, int port,
 					 0, MV88E6XXX_G1_STATS_OP_HIST_RX_TX);
 }
 
+#ifdef CONFIG_NET_DSA_MV88E6XXX_DEBUGFS
+int mv88e6320_stats_get_stats(struct mv88e6xxx_chip *chip, int port,
+			      uint64_t *data)
+#else
 static int mv88e6320_stats_get_stats(struct mv88e6xxx_chip *chip, int port,
 				     uint64_t *data)
+#endif
 {
 	return mv88e6xxx_stats_get_stats(chip, port, data,
 					 STATS_TYPE_BANK0 | STATS_TYPE_BANK1,
@@ -1073,8 +1100,13 @@ static int mv88e6320_stats_get_stats(struct mv88e6xxx_chip *chip, int port,
 					 MV88E6XXX_G1_STATS_OP_HIST_RX_TX);
 }
 
+#ifdef CONFIG_NET_DSA_MV88E6XXX_DEBUGFS
+int mv88e6390_stats_get_stats(struct mv88e6xxx_chip *chip, int port,
+			      uint64_t *data)
+#else
 static int mv88e6390_stats_get_stats(struct mv88e6xxx_chip *chip, int port,
 				     uint64_t *data)
+#endif
 {
 	return mv88e6xxx_stats_get_stats(chip, port, data,
 					 STATS_TYPE_BANK0 | STATS_TYPE_BANK1,
@@ -1434,8 +1466,13 @@ static int mv88e6xxx_vtu_setup(struct mv88e6xxx_chip *chip)
 	return mv88e6xxx_g1_vtu_flush(chip);
 }
 
+#ifdef CONFIG_NET_DSA_MV88E6XXX_DEBUGFS
+int mv88e6xxx_vtu_getnext(struct mv88e6xxx_chip *chip,
+			  struct mv88e6xxx_vtu_entry *entry)
+#else
 static int mv88e6xxx_vtu_getnext(struct mv88e6xxx_chip *chip,
 				 struct mv88e6xxx_vtu_entry *entry)
+#endif
 {
 	if (!chip->info->ops->vtu_getnext)
 		return -EOPNOTSUPP;
@@ -3155,6 +3192,7 @@ static int mv88e6xxx_setup(struct dsa_switch *ds)
 	if (err)
 		goto unlock;
 
+	mv88e6xxx_dbg_create(chip);
 unlock:
 	mv88e6xxx_reg_unlock(chip);
 
@@ -4840,6 +4878,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
 		.phy_base_addr = 0x0,
 		.global1_addr = 0x1b,
 		.global2_addr = 0x1c,
+		.global3_addr = 0x1d,
 		.age_time_coeff = 15000,
 		.g1_irqs = 9,
 		.g2_irqs = 10,
@@ -4888,6 +4927,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
 		.phy_base_addr = 0x0,
 		.global1_addr = 0x1b,
 		.global2_addr = 0x1c,
+		.global3_addr = 0x1d,
 		.age_time_coeff = 15000,
 		.g1_irqs = 9,
 		.g2_irqs = 10,
@@ -4935,6 +4975,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
 		.phy_base_addr = 0x0,
 		.global1_addr = 0x1b,
 		.global2_addr = 0x1c,
+		.global3_addr = 0x1d,
 		.age_time_coeff = 15000,
 		.g1_irqs = 9,
 		.g2_irqs = 10,
@@ -5270,6 +5311,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
 		.phy_base_addr = 0x0,
 		.global1_addr = 0x1b,
 		.global2_addr = 0x1c,
+		.global3_addr = 0x1d,
 		.age_time_coeff = 15000,
 		.g1_irqs = 9,
 		.g2_irqs = 10,
@@ -5318,6 +5360,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
 		.phy_base_addr = 0x0,
 		.global1_addr = 0x1b,
 		.global2_addr = 0x1c,
+		.global3_addr = 0x1f,
 		.age_time_coeff = 3750,
 		.g1_irqs = 9,
 		.g2_irqs = 14,
@@ -5797,6 +5840,8 @@ static void mv88e6xxx_remove(struct mdio_device *mdiodev)
 {
 	struct dsa_switch *ds = dev_get_drvdata(&mdiodev->dev);
 	struct mv88e6xxx_chip *chip = ds->priv;
+
+	mv88e6xxx_dbg_destroy(chip);
 
 	if (chip->info->ptp_support) {
 		mv88e6xxx_hwtstamp_free(chip);
