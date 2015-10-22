@@ -11,6 +11,7 @@
  * (at your option) any later version.
  */
 
+#include <linux/debugfs.h>
 #include <linux/delay.h>
 #include <linux/etherdevice.h>
 #include <linux/ethtool.h>
@@ -21,6 +22,7 @@
 #include <linux/netdevice.h>
 #include <linux/gpio/consumer.h>
 #include <linux/phy.h>
+#include <linux/seq_file.h>
 #include <net/dsa.h>
 #include <net/switchdev.h>
 #include "mv88e6xxx.h"
@@ -2195,6 +2197,473 @@ int mv88e6xxx_setup_ports(struct dsa_switch *ds)
 	return 0;
 }
 
+static int mv88e6xxx_regs_show(struct seq_file *s, void *p)
+{
+	struct dsa_switch *ds = s->private;
+
+	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+	int reg, port;
+
+	seq_puts(s, "    GLOBAL GLOBAL2 SERDES ");
+	for (port = 0 ; port < ps->num_ports; port++)
+		seq_printf(s, " %2d  ", port);
+	seq_puts(s, "\n");
+
+	for (reg = 0; reg < 32; reg++) {
+		seq_printf(s, "%2x: ", reg);
+		seq_printf(s, " %4x    %4x    %4x  ",
+			   mv88e6xxx_reg_read(ds, REG_GLOBAL, reg),
+			   mv88e6xxx_reg_read(ds, REG_GLOBAL2, reg),
+			   mv88e6xxx_phy_page_read(ds, REG_FIBER_SERDES,
+						   PAGE_FIBER_SERDES, reg));
+
+		for (port = 0 ; port < ps->num_ports; port++)
+			seq_printf(s, "%4x ",
+				   mv88e6xxx_reg_read(ds, REG_PORT(port), reg));
+		seq_puts(s, "\n");
+	}
+
+	return 0;
+}
+
+static ssize_t mv88e6xxx_regs_write(struct file *file, const char __user *buf,
+				    size_t count, loff_t *ppos)
+{
+	struct seq_file *s = file->private_data;
+	struct dsa_switch *ds = s->private;
+	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+	char name[32] = { 0 };
+	unsigned int port, reg, val;
+	int ret;
+
+	if (count > sizeof(name) - 1)
+		return -EINVAL;
+
+	ret = sscanf(buf, "%s %x %x", name, &reg, &val);
+	if (ret != 3)
+		return -EINVAL;
+
+	if (reg > 0x1f || val > 0xffff)
+		return -ERANGE;
+
+	if (strcasecmp(name, "GLOBAL") == 0)
+		ret = mv88e6xxx_reg_write(ds, REG_GLOBAL, reg, val);
+	else if (strcasecmp(name, "GLOBAL2") == 0)
+		ret = mv88e6xxx_reg_write(ds, REG_GLOBAL2, reg, val);
+	else if (strcasecmp(name, "SERDES") == 0)
+		ret = mv88e6xxx_phy_page_write(ds, REG_FIBER_SERDES,
+					       PAGE_FIBER_SERDES, reg, val);
+	else if (kstrtouint(name, 10, &port) == 0 && port < ps->num_ports)
+		ret = mv88e6xxx_reg_write(ds, REG_PORT(port), reg, val);
+	else
+		return -EINVAL;
+
+	return ret < 0 ? ret : count;
+}
+
+static int mv88e6xxx_regs_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, mv88e6xxx_regs_show, inode->i_private);
+}
+
+static const struct file_operations mv88e6xxx_regs_fops = {
+	.open   = mv88e6xxx_regs_open,
+	.read   = seq_read,
+	.write	= mv88e6xxx_regs_write,
+	.llseek = no_llseek,
+	.release = single_release,
+	.owner  = THIS_MODULE,
+};
+
+static void mv88e6xxx_atu_show_header(struct seq_file *s)
+{
+	seq_puts(s, "DB   T/P  Vec State Addr\n");
+}
+
+static void mv88e6xxx_atu_show_entry(struct seq_file *s, int dbnum,
+				     unsigned char *addr, int data)
+{
+	bool trunk = !!(data & GLOBAL_ATU_DATA_TRUNK);
+	int portvec = ((data & GLOBAL_ATU_DATA_PORT_VECTOR_MASK) >>
+		       GLOBAL_ATU_DATA_PORT_VECTOR_SHIFT);
+	int state = data & GLOBAL_ATU_DATA_STATE_MASK;
+
+	seq_printf(s, "%03x %5s %10pb   %x   %pM\n",
+		   dbnum, (trunk ? "Trunk" : "Port"), &portvec, state, addr);
+}
+
+static int mv88e6xxx_atu_show_db(struct seq_file *s, struct dsa_switch *ds,
+				 int dbnum)
+{
+	unsigned char bcast[] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
+	unsigned char addr[6];
+	int ret, data, state;
+
+	ret = _mv88e6xxx_atu_mac_write(ds, bcast);
+	if (ret < 0)
+		return ret;
+
+	do {
+		ret = _mv88e6xxx_reg_write(ds, REG_GLOBAL, GLOBAL_ATU_FID,
+					   dbnum);
+		if (ret < 0)
+			return ret;
+
+		ret = _mv88e6xxx_atu_cmd(ds, GLOBAL_ATU_OP_GET_NEXT_DB);
+		if (ret < 0)
+			return ret;
+
+		data = _mv88e6xxx_reg_read(ds, REG_GLOBAL, GLOBAL_ATU_DATA);
+		if (data < 0)
+			return data;
+
+		state = data & GLOBAL_ATU_DATA_STATE_MASK;
+		if (state == GLOBAL_ATU_DATA_STATE_UNUSED)
+			break;
+		ret = _mv88e6xxx_atu_mac_read(ds, addr);
+		if (ret < 0)
+			return ret;
+		mv88e6xxx_atu_show_entry(s, dbnum, addr, data);
+	} while (state != GLOBAL_ATU_DATA_STATE_UNUSED);
+
+	return 0;
+}
+
+static int mv88e6xxx_atu_show(struct seq_file *s, void *p)
+{
+	struct dsa_switch *ds = s->private;
+	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+	int dbnum;
+
+	mv88e6xxx_atu_show_header(s);
+
+	for (dbnum = 0; dbnum < 255; dbnum++) {
+		mutex_lock(&ps->smi_mutex);
+		mv88e6xxx_atu_show_db(s, ds, dbnum);
+		mutex_unlock(&ps->smi_mutex);
+	}
+
+	return 0;
+}
+
+static int mv88e6xxx_atu_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, mv88e6xxx_atu_show, inode->i_private);
+}
+
+static const struct file_operations mv88e6xxx_atu_fops = {
+	.open   = mv88e6xxx_atu_open,
+	.read   = seq_read,
+	.llseek = no_llseek,
+	.release = single_release,
+	.owner  = THIS_MODULE,
+};
+
+static int mv88e6xxx_vtu_show(struct seq_file *s, void *p)
+{
+	struct dsa_switch *ds = s->private;
+	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+	int port, ret = 0, vid = GLOBAL_VTU_VID_MASK; /* first or lowest VID */
+
+	seq_puts(s, " VID  FID  SID");
+	for (port = 0; port < ps->num_ports; ++port)
+		seq_printf(s, " %2d", port);
+	seq_puts(s, "\n");
+
+	mutex_lock(&ps->smi_mutex);
+
+	ret = _mv88e6xxx_vtu_vid_write(ds, vid);
+	if (ret < 0)
+		goto unlock;
+
+	do {
+		struct mv88e6xxx_vtu_stu_entry next = { 0 };
+
+		ret = _mv88e6xxx_vtu_getnext(ds, &next);
+		if (ret < 0)
+			goto unlock;
+
+		if (!next.valid)
+			break;
+
+		seq_printf(s, "%4d %4d   %2d", next.vid, next.fid, next.sid);
+		for (port = 0; port < ps->num_ports; ++port) {
+			switch (next.data[port]) {
+			case GLOBAL_VTU_DATA_MEMBER_TAG_UNMODIFIED:
+				seq_puts(s, "  -");
+				break;
+			case GLOBAL_VTU_DATA_MEMBER_TAG_UNTAGGED:
+				seq_puts(s, "  u");
+				break;
+			case GLOBAL_VTU_DATA_MEMBER_TAG_TAGGED:
+				seq_puts(s, "  t");
+				break;
+			case GLOBAL_VTU_DATA_MEMBER_TAG_NON_MEMBER:
+				seq_puts(s, "  x");
+				break;
+			default:
+				seq_puts(s, "  ?");
+				break;
+			}
+		}
+		seq_puts(s, "\n");
+
+		vid = next.vid;
+	} while (vid < GLOBAL_VTU_VID_MASK);
+
+unlock:
+	mutex_unlock(&ps->smi_mutex);
+
+	return ret;
+}
+
+static ssize_t mv88e6xxx_vtu_write(struct file *file, const char __user *buf,
+				   size_t count, loff_t *ppos)
+{
+	struct seq_file *s = file->private_data;
+	struct dsa_switch *ds = s->private;
+	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+	struct mv88e6xxx_vtu_stu_entry entry = { 0 };
+	bool valid = true;
+	char tags[12]; /* DSA_MAX_PORTS */
+	int vid, fid, sid, port, ret;
+
+	/* scan 12 chars instead of num_ports to avoid dynamic scanning... */
+	ret = sscanf(buf, "%d %d %d %c %c %c %c %c %c %c %c %c %c %c %c", &vid,
+		     &fid, &sid, &tags[0], &tags[1], &tags[2], &tags[3],
+		     &tags[4], &tags[5], &tags[6], &tags[7], &tags[8], &tags[9],
+		     &tags[10], &tags[11]);
+	if (ret == 1)
+		valid = false;
+	else if (ret != 3 + ps->num_ports)
+		return -EINVAL;
+
+	entry.vid = vid;
+	entry.valid = valid;
+
+	if (valid) {
+		entry.fid = fid;
+		entry.sid = sid;
+		/* Note: The VTU entry pointed by VID will be loaded but not
+		 * considered valid until the STU entry pointed by SID is valid.
+		 */
+
+		for (port = 0; port < ps->num_ports; ++port) {
+			u8 tag;
+
+			switch (tags[port]) {
+			case 'u':
+				tag = GLOBAL_VTU_DATA_MEMBER_TAG_UNTAGGED;
+				break;
+			case 't':
+				tag = GLOBAL_VTU_DATA_MEMBER_TAG_TAGGED;
+				break;
+			case 'x':
+				tag = GLOBAL_VTU_DATA_MEMBER_TAG_NON_MEMBER;
+				break;
+			case '-':
+				tag = GLOBAL_VTU_DATA_MEMBER_TAG_UNMODIFIED;
+				break;
+			default:
+				return -EINVAL;
+			}
+
+			entry.data[port] = tag;
+		}
+	}
+
+	mutex_lock(&ps->smi_mutex);
+	ret = _mv88e6xxx_vtu_loadpurge(ds, &entry);
+	mutex_unlock(&ps->smi_mutex);
+
+	return ret < 0 ? ret : count;
+}
+
+static int mv88e6xxx_vtu_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, mv88e6xxx_vtu_show, inode->i_private);
+}
+
+static const struct file_operations mv88e6xxx_vtu_fops = {
+	.open		= mv88e6xxx_vtu_open,
+	.read		= seq_read,
+	.write		= mv88e6xxx_vtu_write,
+	.llseek		= no_llseek,
+	.release	= single_release,
+	.owner		= THIS_MODULE,
+};
+
+static int mv88e6xxx_stats_show(struct seq_file *s, void *p)
+{
+	struct dsa_switch *ds = s->private;
+	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+	int stat, port;
+	int err = 0;
+
+	seq_puts(s, "          Statistic  ");
+	for (port = 0; port < ps->num_ports; port++)
+		seq_printf(s, " Port %2d ", port);
+	seq_puts(s, "\n");
+
+	mutex_lock(&ps->smi_mutex);
+
+	for (stat = 0; stat < ARRAY_SIZE(mv88e6xxx_hw_stats); stat++) {
+		struct mv88e6xxx_hw_stat *hw_stat = &mv88e6xxx_hw_stats[stat];
+
+		if (!mv88e6xxx_has_stat(ds, hw_stat))
+			continue;
+
+		seq_printf(s, "%19s: ", hw_stat->string);
+		for (port = 0 ; port < ps->num_ports; port++) {
+			u64 value;
+
+			err = _mv88e6xxx_stats_snapshot(ds, port);
+			if (err)
+				goto unlock;
+
+			value = _mv88e6xxx_get_ethtool_stat(ds, hw_stat, port);
+			seq_printf(s, "%8llu ", value);
+		}
+		seq_puts(s, "\n");
+	}
+
+unlock:
+	mutex_unlock(&ps->smi_mutex);
+
+	return err;
+}
+
+static int mv88e6xxx_stats_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, mv88e6xxx_stats_show, inode->i_private);
+}
+
+static const struct file_operations mv88e6xxx_stats_fops = {
+	.open   = mv88e6xxx_stats_open,
+	.read   = seq_read,
+	.llseek = no_llseek,
+	.release = single_release,
+	.owner  = THIS_MODULE,
+};
+
+static int mv88e6xxx_device_map_show(struct seq_file *s, void *p)
+{
+	struct dsa_switch *ds = s->private;
+	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+	int target, ret;
+
+	seq_puts(s, "Target Port\n");
+
+	mutex_lock(&ps->smi_mutex);
+	for (target = 0; target < 32; target++) {
+		ret = _mv88e6xxx_reg_write(
+			ds, REG_GLOBAL2, GLOBAL2_DEVICE_MAPPING,
+			target << GLOBAL2_DEVICE_MAPPING_TARGET_SHIFT);
+		if (ret < 0)
+			goto out;
+		ret = _mv88e6xxx_reg_read(ds, REG_GLOBAL2,
+					  GLOBAL2_DEVICE_MAPPING);
+		seq_printf(s, "  %2d   %2d\n", target,
+			   ret & GLOBAL2_DEVICE_MAPPING_PORT_MASK);
+	}
+out:
+	mutex_unlock(&ps->smi_mutex);
+
+	return 0;
+}
+
+static int mv88e6xxx_device_map_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, mv88e6xxx_device_map_show, inode->i_private);
+}
+
+static const struct file_operations mv88e6xxx_device_map_fops = {
+	.open   = mv88e6xxx_device_map_open,
+	.read   = seq_read,
+	.llseek = no_llseek,
+	.release = single_release,
+	.owner  = THIS_MODULE,
+};
+
+/* Must be called with SMI lock held */
+static int _mv88e6xxx_scratch_wait(struct dsa_switch *ds)
+{
+	return _mv88e6xxx_wait(ds, REG_GLOBAL2, GLOBAL2_SCRATCH_MISC,
+			       GLOBAL2_SCRATCH_BUSY);
+}
+
+static int mv88e6xxx_scratch_show(struct seq_file *s, void *p)
+{
+	struct dsa_switch *ds = s->private;
+	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+	int reg, ret;
+
+	seq_puts(s, "Register Value\n");
+
+	mutex_lock(&ps->smi_mutex);
+	for (reg = 0; reg < 0x80; reg++) {
+		ret = _mv88e6xxx_reg_write(
+			ds, REG_GLOBAL2, GLOBAL2_SCRATCH_MISC,
+			reg << GLOBAL2_SCRATCH_REGISTER_SHIFT);
+		if (ret < 0)
+			goto out;
+
+		ret = _mv88e6xxx_scratch_wait(ds);
+		if (ret < 0)
+			goto out;
+
+		ret = _mv88e6xxx_reg_read(ds, REG_GLOBAL2,
+					  GLOBAL2_SCRATCH_MISC);
+		seq_printf(s, "  %2x   %2x\n", reg,
+			   ret & GLOBAL2_SCRATCH_VALUE_MASK);
+	}
+out:
+	mutex_unlock(&ps->smi_mutex);
+
+	return 0;
+}
+
+static int mv88e6xxx_scratch_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, mv88e6xxx_scratch_show, inode->i_private);
+}
+
+static const struct file_operations mv88e6xxx_scratch_fops = {
+	.open   = mv88e6xxx_scratch_open,
+	.read   = seq_read,
+	.llseek = no_llseek,
+	.release = single_release,
+	.owner  = THIS_MODULE,
+};
+
+static void mv88e6xxx_init_debugfs(struct dsa_switch *ds)
+{
+	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+	char *name;
+
+	name = kasprintf(GFP_KERNEL, "mv88e6xxx.%d", ds->index);
+	ps->dbgfs = debugfs_create_dir(name, NULL);
+	kfree(name);
+
+	debugfs_create_file("regs", S_IRUGO | S_IWUSR, ps->dbgfs, ds,
+			    &mv88e6xxx_regs_fops);
+
+	debugfs_create_file("atu", S_IRUGO, ps->dbgfs, ds,
+			    &mv88e6xxx_atu_fops);
+
+	debugfs_create_file("vtu", S_IRUGO | S_IWUSR, ps->dbgfs, ds,
+			    &mv88e6xxx_vtu_fops);
+
+	debugfs_create_file("stats", S_IRUGO, ps->dbgfs, ds,
+			    &mv88e6xxx_stats_fops);
+
+	debugfs_create_file("device_map", S_IRUGO, ps->dbgfs, ds,
+			    &mv88e6xxx_device_map_fops);
+
+	debugfs_create_file("scratch", S_IRUGO, ps->dbgfs, ds,
+			    &mv88e6xxx_scratch_fops);
+}
+
 int mv88e6xxx_setup_common(struct dsa_switch *ds)
 {
 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
@@ -2204,6 +2673,8 @@ int mv88e6xxx_setup_common(struct dsa_switch *ds)
 	ps->id = REG_READ(REG_PORT(0), PORT_SWITCH_ID) & 0xfff0;
 
 	INIT_WORK(&ps->bridge_work, mv88e6xxx_bridge_work);
+
+	mv88e6xxx_init_debugfs(ds);
 
 	return 0;
 }
