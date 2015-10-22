@@ -3128,6 +3128,8 @@ static int mv88e6xxx_setup_global(struct mv88e6xxx_priv_state *ps)
 	return err;
 }
 
+#include "mv88e6xxx_debugfs.c"
+
 static int mv88e6xxx_setup(struct dsa_switch *ds)
 {
 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
@@ -3157,6 +3159,8 @@ static int mv88e6xxx_setup(struct dsa_switch *ds)
 		if (err)
 			goto unlock;
 	}
+
+	mv88e6xxx_init_debugfs(ps);
 
 unlock:
 	mutex_unlock(&ps->smi_mutex);
