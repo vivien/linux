@@ -1,6 +1,7 @@
 /*
  * net/dsa/mv88e6123_61_65.c - Marvell 88e6123/6161/6165 switch chip support
  * Copyright (c) 2008-2009 Marvell Semiconductor
+ * Copyright (c) 2015 Andrew Lunn <andrew@lunn.ch>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -11,6 +12,7 @@
 #include <linux/delay.h>
 #include <linux/jiffies.h>
 #include <linux/list.h>
+#include <linux/mdio.h>
 #include <linux/module.h>
 #include <linux/netdevice.h>
 #include <linux/phy.h>
@@ -123,6 +125,27 @@ struct dsa_switch_driver mv88e6123_switch_driver = {
 #endif
 	.get_regs_len		= mv88e6xxx_get_regs_len,
 	.get_regs		= mv88e6xxx_get_regs,
+};
+
+static int mv88e6123_probe(struct mdio_device *mdiodev)
+{
+	return mv88e6xxx_probe(mdiodev, &mv88e6123_switch_driver,
+			       mv88e6123_table, ARRAY_SIZE(mv88e6123_table));
+}
+
+static const struct of_device_id mv88e6123_of_match[] = {
+	{ .compatible = "marvell,mv88e6123" },
+	{ /* sentinel */ },
+};
+MODULE_DEVICE_TABLE(of, mv88e6123_of_match);
+
+struct mdio_driver mv88e6123_driver = {
+	.probe  = mv88e6123_probe,
+	.remove = mv88e6xxx_remove,
+	.mdiodrv.driver = {
+		.name = "mv88e6123",
+		.of_match_table = mv88e6123_of_match,
+	},
 };
 
 MODULE_ALIAS("platform:mv88e6123");

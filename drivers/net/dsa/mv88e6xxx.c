@@ -3137,19 +3137,73 @@ const char *mv88e6xxx_drv_probe(struct device *dsa_dev, struct device *host_dev,
 	return ps->info->name;
 }
 
+int mv88e6xxx_probe(struct mdio_device *mdiodev, struct dsa_switch_driver *ops,
+		    const struct mv88e6xxx_info *table, unsigned int size)
+{
+	struct device *dev = &mdiodev->dev;
+	struct mii_bus *bus = mdiodev->bus;
+	int sw_addr = mdiodev->addr;
+	struct mv88e6xxx_priv_state *ps;
+	struct dsa_switch *ds;
+
+	ds = devm_kzalloc(dev, sizeof(*ds), GFP_KERNEL);
+	if (!ds)
+		return -ENOMEM;
+
+	ds->drv = ops;
+
+	dev_set_drvdata(dev, ds);
+
+	get_device(&bus->dev);
+
+	ps = mv88e6xxx_mii_probe(dev, bus, sw_addr, table, size);
+	if (!ps)
+		return -ENODEV;
+
+	ps->ds = ds;
+
+	return 0;
+}
+
+void mv88e6xxx_remove(struct mdio_device *mdiodev)
+{
+	struct device *dev = &mdiodev->dev;
+	struct dsa_switch *ds = dev_get_drvdata(&mdiodev->dev);
+	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+
+	devm_kfree(dev, ds);
+	put_device(&ps->bus->dev);
+}
+
+#define mv88e6xxx_register(_name)					\
+	({								\
+		 int _err;						\
+									\
+		 register_switch_driver(&_name##_switch_driver);	\
+		 _err = mdio_driver_register(&_name##_driver);		\
+		 if (_err)						\
+			 return _err;					\
+	 })
+
+#define mv88e6xxx_unregister(_name)					\
+	({								\
+		mdio_driver_unregister(&_name##_driver);		\
+		unregister_switch_driver(&_name##_switch_driver);	\
+	 })
+
 static int __init mv88e6xxx_init(void)
 {
 #if IS_ENABLED(CONFIG_NET_DSA_MV88E6131)
-	register_switch_driver(&mv88e6131_switch_driver);
+	mv88e6xxx_register(mv88e6131);
 #endif
 #if IS_ENABLED(CONFIG_NET_DSA_MV88E6123)
-	register_switch_driver(&mv88e6123_switch_driver);
+	mv88e6xxx_register(mv88e6123);
 #endif
 #if IS_ENABLED(CONFIG_NET_DSA_MV88E6352)
-	register_switch_driver(&mv88e6352_switch_driver);
+	mv88e6xxx_register(mv88e6352);
 #endif
 #if IS_ENABLED(CONFIG_NET_DSA_MV88E6171)
-	register_switch_driver(&mv88e6171_switch_driver);
+	mv88e6xxx_register(mv88e6171);
 #endif
 	return 0;
 }
@@ -3158,16 +3212,16 @@ module_init(mv88e6xxx_init);
 static void __exit mv88e6xxx_cleanup(void)
 {
 #if IS_ENABLED(CONFIG_NET_DSA_MV88E6171)
-	unregister_switch_driver(&mv88e6171_switch_driver);
+	mv88e6xxx_unregister(mv88e6171);
 #endif
 #if IS_ENABLED(CONFIG_NET_DSA_MV88E6352)
-	unregister_switch_driver(&mv88e6352_switch_driver);
+	mv88e6xxx_unregister(mv88e6352);
 #endif
 #if IS_ENABLED(CONFIG_NET_DSA_MV88E6123)
-	unregister_switch_driver(&mv88e6123_switch_driver);
+	mv88e6xxx_unregister(mv88e6123);
 #endif
 #if IS_ENABLED(CONFIG_NET_DSA_MV88E6131)
-	unregister_switch_driver(&mv88e6131_switch_driver);
+	mv88e6xxx_unregister(mv88e6131);
 #endif
 }
 module_exit(mv88e6xxx_cleanup);
