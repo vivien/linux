@@ -1733,6 +1733,31 @@ unlock:
 	return err;
 }
 
+
+int mv88e6xxx_port_vlan_filtering(struct dsa_switch *ds, int port,
+				  bool vlan_filtering)
+{
+	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+	u16 mode = vlan_filtering ? PORT_CONTROL_2_8021Q_SECURE :
+		PORT_CONTROL_2_8021Q_DISABLED;
+	int ret;
+
+	mutex_lock(&ps->smi_mutex);
+
+	ret = _mv88e6xxx_reg_read(ds, REG_PORT(port), PORT_CONTROL_2);
+	if (ret < 0)
+		goto unlock;
+
+	ret &= ~PORT_CONTROL_2_8021Q_MASK;
+	ret |= mode & PORT_CONTROL_2_8021Q_MASK;
+
+	ret = _mv88e6xxx_reg_write(ds, REG_PORT(port), PORT_CONTROL_2, ret);
+unlock:
+	mutex_unlock(&ps->smi_mutex);
+
+	return ret;
+}
+
 int mv88e6xxx_port_vlan_prepare(struct dsa_switch *ds, int port,
 				const struct switchdev_obj_port_vlan *vlan,
 				struct switchdev_trans *trans)
