@@ -3150,6 +3150,7 @@ int mv88e6xxx_probe(struct mdio_device *mdiodev, struct dsa_switch_driver *ops,
 	if (!ds)
 		return -ENOMEM;
 
+	ds->dev = dev;
 	ds->drv = ops;
 
 	dev_set_drvdata(dev, ds);
