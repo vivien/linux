@@ -54,8 +54,11 @@ extern char dsa_driver_version[];
 /* slave.c */
 extern const struct dsa_device_ops notag_netdev_ops;
 void dsa_slave_mii_bus_init(struct dsa_switch *ds);
+int _dsa_slave_create(struct dsa_switch *ds, struct device *parent,
+		      int port, const char *name);
 int dsa_slave_create(struct dsa_switch *ds, struct device *parent,
-		     int port, char *name);
+		     int port, const char *name);
+void _dsa_slave_destroy(struct net_device *slave_dev);
 void dsa_slave_destroy(struct net_device *slave_dev);
 int dsa_slave_suspend(struct net_device *slave_dev);
 int dsa_slave_resume(struct net_device *slave_dev);
