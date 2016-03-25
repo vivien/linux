@@ -19,6 +19,7 @@
 #include <linux/list.h>
 #include <linux/module.h>
 #include <linux/netdevice.h>
+#include <linux/of_mdio.h>
 #include <linux/gpio/consumer.h>
 #include <linux/phy.h>
 #include <net/dsa.h>
@@ -241,6 +242,14 @@ static int _mv88e6xxx_phy_write(struct mv88e6xxx_priv_state *ps, int addr,
 	return 0;
 }
 
+static int mv88e6xxx_port_to_phy_addr(struct mv88e6xxx_priv_state *ps,
+				      int port)
+{
+	if (port >= 0 && port < ps->info->num_ports)
+		return port;
+	return -EINVAL;
+}
+
 #ifdef CONFIG_NET_DSA_MV88E6XXX_NEED_PPU
 static int mv88e6xxx_ppu_disable(struct mv88e6xxx_priv_state *ps)
 {
@@ -352,7 +361,7 @@ static void mv88e6xxx_ppu_access_put(struct mv88e6xxx_priv_state *ps)
 	mutex_unlock(&ps->ppu_mutex);
 }
 
-void mv88e6xxx_ppu_state_init(struct mv88e6xxx_priv_state *ps)
+static void mv88e6xxx_ppu_state_init(struct mv88e6xxx_priv_state *ps)
 {
 	mutex_init(&ps->ppu_mutex);
 	INIT_WORK(&ps->ppu_work, mv88e6xxx_ppu_reenable_work);
@@ -361,10 +370,14 @@ void mv88e6xxx_ppu_state_init(struct mv88e6xxx_priv_state *ps)
 	ps->ppu_timer.function = mv88e6xxx_ppu_reenable_timer;
 }
 
-int mv88e6xxx_phy_read_ppu(struct dsa_switch *ds, int addr, int regnum)
+static int mv88e6xxx_mdio_read_ppu(struct mv88e6xxx_priv_state *ps, int port,
+				   int regnum)
 {
-	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+	int addr = mv88e6xxx_port_to_phy_addr(ps, port);
 	int ret;
+
+	if (addr < 0)
+		return 0xffff;
 
 	ret = mv88e6xxx_ppu_access_get(ps);
 	if (ret >= 0) {
@@ -375,11 +388,14 @@ int mv88e6xxx_phy_read_ppu(struct dsa_switch *ds, int addr, int regnum)
 	return ret;
 }
 
-int mv88e6xxx_phy_write_ppu(struct dsa_switch *ds, int addr,
-			    int regnum, u16 val)
+static int mv88e6xxx_mdio_write_ppu(struct mv88e6xxx_priv_state *ps, int port,
+				    int regnum, u16 val)
 {
-	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+	int addr = mv88e6xxx_port_to_phy_addr(ps, port);
 	int ret;
+
+	if (addr < 0)
+		return 0xffff;
 
 	ret = mv88e6xxx_ppu_access_get(ps);
 	if (ret >= 0) {
@@ -2593,7 +2609,7 @@ int mv88e6xxx_setup_ports(struct dsa_switch *ds)
 	return 0;
 }
 
-int mv88e6xxx_setup_common(struct mv88e6xxx_priv_state *ps)
+static int mv88e6xxx_setup_common(struct mv88e6xxx_priv_state *ps)
 {
 	mutex_init(&ps->smi_mutex);
 
@@ -2865,18 +2881,9 @@ int mv88e6xxx_phy_page_write(struct dsa_switch *ds, int port, int page,
 	return ret;
 }
 
-static int mv88e6xxx_port_to_phy_addr(struct mv88e6xxx_priv_state *ps,
-				      int port)
+static int mv88e6xxx_mdio_read_direct(struct mv88e6xxx_priv_state *ps,
+				      int port, int regnum)
 {
-	if (port >= 0 && port < ps->info->num_ports)
-		return port;
-	return -EINVAL;
-}
-
-int
-mv88e6xxx_phy_read(struct dsa_switch *ds, int port, int regnum)
-{
-	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
 	int addr = mv88e6xxx_port_to_phy_addr(ps, port);
 	int ret;
 
@@ -2889,10 +2896,9 @@ mv88e6xxx_phy_read(struct dsa_switch *ds, int port, int regnum)
 	return ret;
 }
 
-int
-mv88e6xxx_phy_write(struct dsa_switch *ds, int port, int regnum, u16 val)
+static int mv88e6xxx_mdio_write_direct(struct mv88e6xxx_priv_state *ps,
+				       int port, int regnum, u16 val)
 {
-	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
 	int addr = mv88e6xxx_port_to_phy_addr(ps, port);
 	int ret;
 
@@ -2905,10 +2911,9 @@ mv88e6xxx_phy_write(struct dsa_switch *ds, int port, int regnum, u16 val)
 	return ret;
 }
 
-int
-mv88e6xxx_phy_read_indirect(struct dsa_switch *ds, int port, int regnum)
+static int mv88e6xxx_mdio_read_indirect(struct mv88e6xxx_priv_state *ps,
+					int port, int regnum)
 {
-	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
 	int addr = mv88e6xxx_port_to_phy_addr(ps, port);
 	int ret;
 
@@ -2921,16 +2926,14 @@ mv88e6xxx_phy_read_indirect(struct dsa_switch *ds, int port, int regnum)
 	return ret;
 }
 
-int
-mv88e6xxx_phy_write_indirect(struct dsa_switch *ds, int port, int regnum,
-			     u16 val)
+static int mv88e6xxx_mdio_write_indirect(struct mv88e6xxx_priv_state *ps,
+					 int port, int regnum, u16 val)
 {
-	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
 	int addr = mv88e6xxx_port_to_phy_addr(ps, port);
 	int ret;
 
 	if (addr < 0)
-		return addr;
+		return 0xffff;
 
 	mutex_lock(&ps->smi_mutex);
 	ret = _mv88e6xxx_phy_write_indirect(ps, addr, regnum, val);
@@ -3070,6 +3073,125 @@ int mv88e6xxx_get_temp_alarm(struct dsa_switch *ds, bool *alarm)
 }
 #endif /* CONFIG_NET_DSA_HWMON */
 
+static const struct mv88e6xxx_mdio_ops mv88e6xxx_mdio_ops_direct = {
+	.mdio_read		= mv88e6xxx_mdio_read_direct,
+	.mdio_write		= mv88e6xxx_mdio_write_direct,
+};
+
+static const struct mv88e6xxx_mdio_ops mv88e6xxx_mdio_ops_ppu = {
+	.mdio_init		= mv88e6xxx_ppu_state_init,
+	.mdio_read		= mv88e6xxx_mdio_read_ppu,
+	.mdio_write		= mv88e6xxx_mdio_write_ppu,
+};
+
+static const struct mv88e6xxx_mdio_ops mv88e6xxx_mdio_ops_indirect = {
+	.mdio_read		= mv88e6xxx_mdio_read_indirect,
+	.mdio_write		= mv88e6xxx_mdio_write_indirect,
+};
+
+static int mv88e6xxx_mdio_read(struct mii_bus *bus, int addr, int reg)
+{
+	struct mv88e6xxx_priv_state *ps = bus->priv;
+
+	if (ps->mdio_ops->mdio_read)
+		return ps->mdio_ops->mdio_read(ps, addr, reg);
+
+	return 0xffff;
+}
+
+static int mv88e6xxx_mdio_write(struct mii_bus *bus, int addr, int reg, u16 val)
+{
+	struct mv88e6xxx_priv_state *ps = bus->priv;
+
+	if (ps->mdio_ops->mdio_write)
+		return ps->mdio_ops->mdio_write(ps, addr, reg, val);
+
+	return 0;
+}
+
+static const struct mv88e6xxx_mdio_ops *
+mv88e6xxx_get_mdio_ops(struct mv88e6xxx_priv_state *ps)
+{
+	if (mv88e6xxx_6165_family(ps))
+	    return &mv88e6xxx_mdio_ops_direct;
+
+	if (mv88e6xxx_6097_family(ps) || mv88e6xxx_6095_family(ps) ||
+	    mv88e6xxx_6185_family(ps))
+		return &mv88e6xxx_mdio_ops_ppu;
+
+	if (mv88e6xxx_6352_family(ps) || mv88e6xxx_6320_family(ps) ||
+	    mv88e6xxx_6351_family(ps))
+		return &mv88e6xxx_mdio_ops_indirect;
+
+	WARN(true, "Unknown MDIO ops\n");
+
+	return NULL;
+}
+
+static int mv88e6xxx_mdio_register(struct mv88e6xxx_priv_state *ps,
+				   struct device_node *np)
+{
+	const struct mv88e6xxx_mdio_ops *ops = mv88e6xxx_get_mdio_ops(ps);
+	struct mii_bus *bus;
+	int err;
+
+	if (!ops)
+		return -EINVAL;
+
+	ps->mdio_ops = ops;
+
+	if (ops->mdio_init)
+		ops->mdio_init(ps);
+
+	if (np)
+		ps->mdio_np = of_get_child_by_name(np, "mdio-bus");
+
+	bus = devm_mdiobus_alloc(ps->dev);
+	if (!bus)
+		return -ENOMEM;
+
+	bus->priv = (void *)ps;
+	if (np) {
+		bus->name = np->full_name;
+		snprintf(bus->id, MII_BUS_ID_SIZE, "%s", np->full_name);
+	} else {
+		bus->name = dev_name(ps->dev);
+		snprintf(bus->id, MII_BUS_ID_SIZE, "%s-%s", ps->bus->id,
+			 dev_name(ps->dev));
+	}
+
+	bus->read = mv88e6xxx_mdio_read;
+	bus->write = mv88e6xxx_mdio_write;
+	bus->parent = ps->dev;
+
+	if (ps->mdio_np)
+		err = of_mdiobus_register(bus, ps->mdio_np);
+	else
+		err = mdiobus_register(bus);
+	if (err) {
+		dev_err(ps->dev, "Cannot register MDIO bus (%d)\n", err);
+		goto out;
+	}
+	ps->mdio_bus = bus;
+
+	return 0;
+
+out:
+	if (ps->mdio_np)
+		of_node_put(ps->mdio_np);
+        return err;
+}
+
+static void mv88e6xxx_mdio_unregister(struct mv88e6xxx_priv_state *ps)
+{
+	struct mii_bus *bus = ps->mdio_bus;
+
+	mdiobus_unregister(bus);
+
+	if (ps->mdio_np)
+		of_node_put(ps->mdio_np);
+}
+
 static const struct mv88e6xxx_info *
 mv88e6xxx_lookup_info(unsigned int prod_num, const struct mv88e6xxx_info *table,
 		      unsigned int num)
@@ -3090,6 +3212,7 @@ mv88e6xxx_mii_probe(struct device *dev, struct mii_bus *bus, int sw_addr,
 	const struct mv88e6xxx_info *info;
 	struct mv88e6xxx_priv_state *ps;
 	int id, prod_num, rev;
+	int err;
 
 	id = __mv88e6xxx_reg_read(bus, sw_addr, REG_PORT(0), PORT_SWITCH_ID);
 	if (id < 0)
@@ -3108,7 +3231,16 @@ mv88e6xxx_mii_probe(struct device *dev, struct mii_bus *bus, int sw_addr,
 
 	ps->bus = bus;
 	ps->sw_addr = sw_addr;
+	ps->dev = dev;
 	ps->info = info;
+
+	err = mv88e6xxx_setup_common(ps);
+	if (err)
+		return NULL;
+
+	err = mv88e6xxx_mdio_register(ps, dev->of_node);
+	if (err)
+		return NULL;
 
 	dev_info(dev, "switch 0x%x probed: %s, revision %u\n",
 		 prod_num, ps->info->name, rev);
@@ -3155,13 +3287,13 @@ int mv88e6xxx_probe(struct mdio_device *mdiodev, struct dsa_switch_driver *ops,
 
 	dev_set_drvdata(dev, ds);
 
-	get_device(&bus->dev);
-
 	ps = mv88e6xxx_mii_probe(dev, bus, sw_addr, table, size);
 	if (!ps)
 		return -ENODEV;
 
 	ps->ds = ds;
+
+	ds->slave_mii_bus = ps->mdio_bus;
 
 	return 0;
 }
@@ -3172,8 +3304,9 @@ void mv88e6xxx_remove(struct mdio_device *mdiodev)
 	struct dsa_switch *ds = dev_get_drvdata(&mdiodev->dev);
 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
 
+	mv88e6xxx_mdio_unregister(ps);
+
 	devm_kfree(dev, ds);
-	put_device(&ps->bus->dev);
 }
 
 #define mv88e6xxx_register(_name)					\

@@ -92,11 +92,9 @@ static int mv88e6123_setup(struct dsa_switch *ds)
 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
 	int ret;
 
+	ds->slave_mii_bus = ps->mdio_bus;
+	ps->dev = ds->dev;
 	ps->ds = ds;
-
-	ret = mv88e6xxx_setup_common(ps);
-	if (ret < 0)
-		return ret;
 
 	ret = mv88e6xxx_switch_reset(ps, false);
 	if (ret < 0)
@@ -114,8 +112,6 @@ struct dsa_switch_driver mv88e6123_switch_driver = {
 	.probe			= mv88e6123_drv_probe,
 	.setup			= mv88e6123_setup,
 	.set_addr		= mv88e6xxx_set_addr_indirect,
-	.phy_read		= mv88e6xxx_phy_read,
-	.phy_write		= mv88e6xxx_phy_write,
 	.get_strings		= mv88e6xxx_get_strings,
 	.get_ethtool_stats	= mv88e6xxx_get_ethtool_stats,
 	.get_sset_count		= mv88e6xxx_get_sset_count,
