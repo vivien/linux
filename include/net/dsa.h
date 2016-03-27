@@ -26,6 +26,7 @@ enum dsa_tag_protocol {
 	DSA_TAG_PROTO_TRAILER,
 	DSA_TAG_PROTO_EDSA,
 	DSA_TAG_PROTO_BRCM,
+	_DSA_TAG_LAST,
 };
 
 #define DSA_MAX_SWITCHES	4
@@ -100,7 +101,6 @@ struct dsa_switch_tree {
 				       struct net_device *dev,
 				       struct packet_type *pt,
 				       struct net_device *orig_dev);
-	enum dsa_tag_protocol	tag_protocol;
 
 	/*
 	 * Original copy of the master netdev ethtool_ops
@@ -117,6 +117,12 @@ struct dsa_switch_tree {
 	 * Data for the individual switch chips.
 	 */
 	struct dsa_switch	*ds[DSA_MAX_SWITCHES];
+
+	/*
+	 * Tagging protocol operations for adding and removing an
+	 * encapsulation tag.
+	 */
+	const struct dsa_device_ops *tag_ops;
 };
 
 struct dsa_port {
