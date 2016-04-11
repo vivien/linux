@@ -340,6 +340,12 @@ struct dsa_switch_driver {
 	int	(*port_fdb_dump)(struct dsa_switch *ds, int port,
 				 struct switchdev_obj_port_fdb *fdb,
 				 int (*cb)(struct switchdev_obj *obj));
+
+	/*
+	 * Cross-chip notifications
+	 */
+	void	(*cross_chip_bridge)(struct dsa_switch *ds, int sw_index,
+				     int sw_port, struct net_device *bridge);
 };
 
 void register_switch_driver(struct dsa_switch_driver *type);

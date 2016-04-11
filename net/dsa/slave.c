@@ -431,19 +431,68 @@ static int dsa_slave_port_obj_dump(struct net_device *dev,
 	return err;
 }
 
+static void dsa_slave_broadcast_bridge(struct net_device *dev)
+{
+	struct dsa_slave_priv *p = netdev_priv(dev);
+	struct dsa_switch *ds = p->parent;
+	int chip;
+
+	for (chip = 0; chip < ds->dst->pd->nr_chips; ++chip) {
+		struct dsa_switch *sw = ds->dst->ds[chip];
+
+		if (sw->index == ds->index)
+			continue;
+
+		if (sw->drv->cross_chip_bridge)
+			sw->drv->cross_chip_bridge(sw, ds->index, p->port,
+						   p->bridge_dev);
+	}
+}
+
+static void dsa_tree_broadcast_bridge(struct dsa_switch_tree *dst,
+				      struct net_device *bridge)
+{
+	struct net_device *dev;
+	struct dsa_slave_priv *p;
+	struct dsa_switch *ds;
+	int chip, port;
+
+	for (chip = 0; chip < dst->pd->nr_chips; ++chip) {
+		ds = dst->ds[chip];
+
+		for (port = 0; port < DSA_MAX_PORTS; ++port) {
+			if (!ds->ports[port])
+				continue;
+
+			dev = ds->ports[port];
+			p = netdev_priv(dev);
+
+			if (p->bridge_dev == bridge)
+				dsa_slave_broadcast_bridge(dev);
+		}
+	}
+}
+
 static int dsa_slave_bridge_port_join(struct net_device *dev,
 				      struct net_device *br)
 {
 	struct dsa_slave_priv *p = netdev_priv(dev);
 	struct dsa_switch *ds = p->parent;
-	int ret = -EOPNOTSUPP;
+	int err;
 
 	p->bridge_dev = br;
 
-	if (ds->drv->port_bridge_join)
-		ret = ds->drv->port_bridge_join(ds, p->port, br);
+	/* In-chip hardware bridging */
+	if (ds->drv->port_bridge_join) {
+		err = ds->drv->port_bridge_join(ds, p->port, br);
+		if (err && err != -EOPNOTSUPP)
+			return err;
+	}
 
-	return ret == -EOPNOTSUPP ? 0 : ret;
+	/* Broadcast bridge membership across chips */
+	dsa_tree_broadcast_bridge(ds->dst, br);
+
+	return 0;
 }
 
 static void dsa_slave_bridge_port_leave(struct net_device *dev)
@@ -462,6 +511,9 @@ static void dsa_slave_bridge_port_leave(struct net_device *dev)
 	 */
 	if (ds->drv->port_stp_state_set)
 		ds->drv->port_stp_state_set(ds, p->port, BR_STATE_FORWARDING);
+
+	/* Notify the port leaving to other chips */
+	dsa_slave_broadcast_bridge(dev);
 }
 
 static int dsa_slave_port_attr_get(struct net_device *dev,
