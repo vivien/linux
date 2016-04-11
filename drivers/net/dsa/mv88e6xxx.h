@@ -523,6 +523,8 @@ int mv88e6xxx_port_fdb_del(struct dsa_switch *ds, int port,
 int mv88e6xxx_port_fdb_dump(struct dsa_switch *ds, int port,
 			    struct switchdev_obj_port_fdb *fdb,
 			    int (*cb)(struct switchdev_obj *obj));
+void mv88e6xxx_cross_chip_bridge(struct dsa_switch *ds, int sw_index,
+				 int sw_port, struct net_device *bridge);
 int mv88e6xxx_phy_page_read(struct dsa_switch *ds, int port, int page, int reg);
 int mv88e6xxx_phy_page_write(struct dsa_switch *ds, int port, int page,
 			     int reg, int val);

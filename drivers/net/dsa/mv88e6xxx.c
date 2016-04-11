@@ -481,6 +481,14 @@ static bool mv88e6xxx_has_stu(struct dsa_switch *ds)
 	return false;
 }
 
+static bool mv88e6xxx_has_pvt(struct dsa_switch *ds)
+{
+	if (mv88e6xxx_6185_family(ds))
+		return false;
+
+	return true;
+}
+
 /* We expect the switch to perform auto negotiation if there is a real
  * phy. However, in the case of a fixed link phy, we force the port
  * settings from the fixed link settings.
@@ -2228,8 +2236,69 @@ static int _mv88e6xxx_pvt_cmd(struct dsa_switch *ds, int src_dev, int src_port,
 	return _mv88e6xxx_pvt_wait(ds);
 }
 
+static int _mv88e6xxx_pvt_read(struct dsa_switch *ds, int src_dev, int src_port,
+			       u16 *data)
+{
+	int ret;
+
+	ret = _mv88e6xxx_pvt_wait(ds);
+	if (ret < 0)
+		return ret;
+
+	ret = _mv88e6xxx_pvt_cmd(ds, src_dev, src_port,
+				GLOBAL2_PVT_ADDR_OP_READ);
+	if (ret < 0)
+		return ret;
+
+	ret = _mv88e6xxx_reg_read(ds, REG_GLOBAL2, GLOBAL2_PVT_DATA);
+	if (ret < 0)
+		return ret;
+
+	*data = ret;
+
+	return 0;
+}
+
+static int _mv88e6xxx_pvt_write(struct dsa_switch *ds, int src_dev,
+				int src_port, u16 data)
+{
+	int err;
+
+	err = _mv88e6xxx_pvt_wait(ds);
+	if (err)
+		return err;
+
+	err = _mv88e6xxx_reg_write(ds, REG_GLOBAL2, GLOBAL2_PVT_DATA, data);
+	if (err)
+		return err;
+
+        return _mv88e6xxx_pvt_cmd(ds, src_dev, src_port,
+				GLOBAL2_PVT_ADDR_OP_WRITE_PVLAN);
+}
+
+static int _mv88e6xxx_pvt_map(struct dsa_switch *ds, int src_dev, int src_port,
+			      struct net_device *bridge)
+{
+	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+	u16 pvlan = 0;
+	int port;
+
+	for (port = 0; port < ps->info->num_ports; ++port) {
+		/* Frames from external ports can egress DSA and CPU ports */
+		if (dsa_is_cpu_port(ds, port) || dsa_is_dsa_port(ds, port))
+			pvlan |= BIT(port);
+
+		/* Frames can egress bridge group members */
+		if (bridge && ps->ports[port].bridge_dev == bridge)
+			pvlan |= BIT(port);
+	}
+
+	return _mv88e6xxx_pvt_write(ds, src_dev, src_port, pvlan);
+}
+
 static int _mv88e6xxx_pvt_init(struct dsa_switch *ds)
 {
+	int src_dev, src_port;
 	int err;
 
 	/* Clear 5 Bit Port for usage with Marvell Link Street devices:
@@ -2240,8 +2309,21 @@ static int _mv88e6xxx_pvt_init(struct dsa_switch *ds)
 	if (err)
 		return err;
 
-	/* Allow any external frame to egress any internal port */
-	return _mv88e6xxx_pvt_cmd(ds, 0, 0, GLOBAL2_PVT_ADDR_OP_INIT_ONES);
+	/* Forbid every port of potential neighbor switches to egress frames on
+	 * the normal ports of this switch.
+	 */
+	for (src_dev = 0; src_dev < 32; ++src_dev) {
+		if (src_dev == ds->index)
+			continue;
+
+		for (src_port = 0; src_port < 16; ++src_port) {
+			err = _mv88e6xxx_pvt_map(ds, src_dev, src_port, NULL);
+			if (err)
+				return err;
+		}
+	}
+
+	return 0;
 }
 
 int mv88e6xxx_port_bridge_join(struct dsa_switch *ds, int port,
@@ -2286,6 +2368,35 @@ unlock:
 	return err;
 }
 
+static int _mv88e6xxx_pvt_unmap_local(struct dsa_switch *ds, int port)
+{
+	u16 pvlan;
+	int src_dev, src_port, err;
+
+	for (src_dev = 0; src_dev < 32; ++src_dev) {
+		if (src_dev == ds->index)
+			continue;
+
+		for (src_port = 0; src_port < 16; ++src_port) {
+			err = _mv88e6xxx_pvt_read(ds, src_dev, src_port,
+						  &pvlan);
+			if (err)
+				return err;
+
+			/* Forbid external normal frames to egress this port */
+			if (pvlan & BIT(port)) {
+				err = _mv88e6xxx_pvt_write(ds, src_dev,
+							   src_port,
+							   pvlan & ~BIT(port));
+				if (err)
+					return err;
+			}
+		}
+	}
+
+	return 0;
+}
+
 void mv88e6xxx_port_bridge_leave(struct dsa_switch *ds, int port)
 {
 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
@@ -2308,6 +2419,28 @@ void mv88e6xxx_port_bridge_leave(struct dsa_switch *ds, int port)
 			if (_mv88e6xxx_port_based_vlan_map(ds, i))
 				netdev_warn(ds->ports[i], "failed to remap\n");
 
+	if (mv88e6xxx_has_pvt(ds) && _mv88e6xxx_pvt_unmap_local(ds, port))
+		netdev_err(ds->ports[port], "failed to unmap\n");
+
+	mutex_unlock(&ps->smi_mutex);
+}
+
+void mv88e6xxx_cross_chip_bridge(struct dsa_switch *ds, int sw_index,
+				 int sw_port, struct net_device *bridge)
+{
+	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+
+	if (!mv88e6xxx_has_pvt(ds))
+		return;
+
+	/* Update the Cross-chip Port VLAN Table (PVT) entry for this external
+	 * source port to map which internal ports frames are allowed to egress.
+	 */
+
+	mutex_lock(&ps->smi_mutex);
+	if (_mv88e6xxx_pvt_map(ds, sw_index, sw_port, bridge))
+		dev_err(ds->master_dev, "failed to access PVT for sw%dp%d\n",
+			sw_index, sw_port);
 	mutex_unlock(&ps->smi_mutex);
 }
 
