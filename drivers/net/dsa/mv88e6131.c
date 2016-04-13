@@ -64,18 +64,11 @@ static int mv88e6131_setup_global(struct dsa_switch *ds)
 		GLOBAL_MONITOR_CONTROL_ARP_DISABLED;
 	REG_WRITE(REG_GLOBAL, GLOBAL_MONITOR_CONTROL, reg);
 
-	/* Disable cascade port functionality unless this device
-	 * is used in a cascade configuration, and set the switch's
-	 * DSA device number.
+	/* Set the switch's DSA device number and enable the use of
+	 * the routing table.
 	 */
-	if (ds->dst->pd->nr_chips > 1)
-		REG_WRITE(REG_GLOBAL, GLOBAL_CONTROL_2,
-			  GLOBAL_CONTROL_2_MULTIPLE_CASCADE |
-			  (ds->index & 0x1f));
-	else
-		REG_WRITE(REG_GLOBAL, GLOBAL_CONTROL_2,
-			  GLOBAL_CONTROL_2_NO_CASCADE |
-			  (ds->index & 0x1f));
+	REG_WRITE(REG_GLOBAL, GLOBAL_CONTROL_2,
+		  GLOBAL_CONTROL_2_MULTIPLE_CASCADE | (ds->index & 0x1f));
 
 	/* Force the priority of IGMP/MLD snoop frames and ARP frames
 	 * to the highest setting.
