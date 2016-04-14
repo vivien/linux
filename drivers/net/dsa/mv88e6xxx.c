@@ -476,6 +476,22 @@ static bool mv88e6xxx_6352_family(struct dsa_switch *ds)
 	return false;
 }
 
+static bool mv88e6xxx_6131_compatible(struct dsa_switch *ds)
+{
+	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+
+	switch (ps->id) {
+	case PORT_SWITCH_ID_6085:
+	case PORT_SWITCH_ID_6185:
+	case PORT_SWITCH_ID_6095:
+	case PORT_SWITCH_ID_6131:
+	case PORT_SWITCH_ID_6131_B2:
+		return true;
+	}
+
+	return false;
+}
+
 static unsigned int mv88e6xxx_num_databases(struct dsa_switch *ds)
 {
 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
@@ -2887,6 +2903,9 @@ mv88e6xxx_phy_read(struct dsa_switch *ds, int port, int regnum)
 	if (addr < 0)
 		return addr;
 
+	if (mv88e6xxx_6131_compatible(ds))
+		return mv88e6xxx_phy_read_ppu(ds, addr, regnum);
+
 	mutex_lock(&ps->smi_mutex);
 	ret = _mv88e6xxx_phy_read(ds, addr, regnum);
 	mutex_unlock(&ps->smi_mutex);
@@ -2902,6 +2921,9 @@ mv88e6xxx_phy_write(struct dsa_switch *ds, int port, int regnum, u16 val)
 
 	if (addr < 0)
 		return addr;
+
+	if (mv88e6xxx_6131_compatible(ds))
+		return mv88e6xxx_phy_write_ppu(ds, addr, regnum, val);
 
 	mutex_lock(&ps->smi_mutex);
 	ret = _mv88e6xxx_phy_write(ds, addr, regnum, val);
