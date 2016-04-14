@@ -470,6 +470,7 @@ char *mv88e6xxx_drv_probe(struct device *dsa_dev, struct device *host_dev,
 int mv88e6xxx_setup_ports(struct dsa_switch *ds);
 int mv88e6xxx_setup_common(struct dsa_switch *ds);
 int mv88e6xxx_setup_global(struct dsa_switch *ds);
+int mv88e6xxx_setup(struct dsa_switch *ds);
 int mv88e6xxx_reg_read(struct dsa_switch *ds, int addr, int reg);
 int mv88e6xxx_reg_write(struct dsa_switch *ds, int addr, int reg, u16 val);
 int mv88e6xxx_set_addr_direct(struct dsa_switch *ds, u8 *addr);

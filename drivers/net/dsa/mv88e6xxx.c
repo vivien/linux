@@ -2917,6 +2917,49 @@ int mv88e6xxx_switch_reset(struct dsa_switch *ds, bool ppu_active)
 	return 0;
 }
 
+int mv88e6xxx_setup(struct dsa_switch *ds)
+{
+	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+	int ret;
+
+	ps->ds = ds;
+
+	ret = mv88e6xxx_setup_common(ds);
+	if (ret < 0)
+		return ret;
+
+	if (mv88e6xxx_6131_compatible(ds))
+		mv88e6xxx_ppu_state_init(ds);
+
+	switch (ps->id) {
+	case PORT_SWITCH_ID_6085:
+	case PORT_SWITCH_ID_6185:
+		ps->num_ports = 10;
+		break;
+	case PORT_SWITCH_ID_6095:
+		ps->num_ports = 11;
+		break;
+	case PORT_SWITCH_ID_6131:
+	case PORT_SWITCH_ID_6131_B2:
+		ps->num_ports = 8;
+		break;
+	default:
+		return -ENODEV;
+	}
+
+	if (mv88e6xxx_6131_compatible(ds)) {
+		ret = mv88e6xxx_switch_reset(ds, false);
+		if (ret < 0)
+			return ret;
+	}
+
+	ret = mv88e6xxx_setup_global(ds);
+	if (ret < 0)
+		return ret;
+
+	return mv88e6xxx_setup_ports(ds);
+}
+
 int mv88e6xxx_phy_page_read(struct dsa_switch *ds, int port, int page, int reg)
 {
 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
