@@ -2690,6 +2690,59 @@ int mv88e6xxx_setup_common(struct dsa_switch *ds)
 	return 0;
 }
 
+static int mv88e6131_setup_global(struct dsa_switch *ds)
+{
+	u32 upstream_port = dsa_upstream_port(ds);
+	int err;
+	u32 reg;
+
+	/* Enable the PHY polling unit, don't discard packets with
+	 * excessive collisions, use a weighted fair queueing scheme
+	 * to arbitrate between packet queues, set the maximum frame
+	 * size to 1632, and mask all interrupt sources.
+	 */
+	err = _mv88e6xxx_reg_write(ds, REG_GLOBAL, GLOBAL_CONTROL,
+				   GLOBAL_CONTROL_PPU_ENABLE |
+				   GLOBAL_CONTROL_MAX_FRAME_1632);
+	if (err)
+		return err;
+
+	/* Set the VLAN ethertype to 0x8100. */
+	err = _mv88e6xxx_reg_write(ds, REG_GLOBAL, GLOBAL_CORE_TAG_TYPE,
+				   0x8100);
+	if (err)
+		return err;
+
+	/* Disable ARP mirroring, and configure the upstream port as
+	 * the port to which ingress and egress monitor frames are to
+	 * be sent.
+	 */
+	reg = upstream_port << GLOBAL_MONITOR_CONTROL_INGRESS_SHIFT |
+		upstream_port << GLOBAL_MONITOR_CONTROL_EGRESS_SHIFT |
+		GLOBAL_MONITOR_CONTROL_ARP_DISABLED;
+	err = _mv88e6xxx_reg_write(ds, REG_GLOBAL, GLOBAL_MONITOR_CONTROL, reg);
+	if (err)
+		return err;
+
+	/* Set the switch's DSA device number and enable the use of
+	 * the routing table.
+	 */
+	err = _mv88e6xxx_reg_write(ds, REG_GLOBAL, GLOBAL_CONTROL_2,
+				   GLOBAL_CONTROL_2_MULTIPLE_CASCADE |
+				   (ds->index & 0x1f));
+	if (err)
+		return err;
+
+	/* Force the priority of IGMP/MLD snoop frames and ARP frames
+	 * to the highest setting.
+	 */
+	return _mv88e6xxx_reg_write(ds, REG_GLOBAL2, GLOBAL2_PRIO_OVERRIDE,
+				    GLOBAL2_PRIO_OVERRIDE_FORCE_SNOOP |
+				    7 << GLOBAL2_PRIO_OVERRIDE_SNOOP_SHIFT |
+				    GLOBAL2_PRIO_OVERRIDE_FORCE_ARP |
+				    7 << GLOBAL2_PRIO_OVERRIDE_ARP_SHIFT);
+}
+
 int mv88e6xxx_setup_global(struct dsa_switch *ds)
 {
 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
@@ -2804,6 +2857,11 @@ int mv88e6xxx_setup_global(struct dsa_switch *ds)
 
 	/* Clear all the VTU and STU entries */
 	ret = _mv88e6xxx_vtu_stu_flush(ds);
+	if (ret < 0)
+		goto unlock;
+
+	if (mv88e6xxx_6131_compatible(ds))
+		ret = mv88e6131_setup_global(ds);
 unlock:
 	mutex_unlock(&ps->smi_mutex);
 

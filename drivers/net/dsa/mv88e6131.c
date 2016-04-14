@@ -34,54 +34,6 @@ static char *mv88e6131_drv_probe(struct device *dsa_dev,
 				   ARRAY_SIZE(mv88e6131_table));
 }
 
-static int mv88e6131_setup_global(struct dsa_switch *ds)
-{
-	u32 upstream_port = dsa_upstream_port(ds);
-	int ret;
-	u32 reg;
-
-	ret = mv88e6xxx_setup_global(ds);
-	if (ret)
-		return ret;
-
-	/* Enable the PHY polling unit, don't discard packets with
-	 * excessive collisions, use a weighted fair queueing scheme
-	 * to arbitrate between packet queues, set the maximum frame
-	 * size to 1632, and mask all interrupt sources.
-	 */
-	REG_WRITE(REG_GLOBAL, GLOBAL_CONTROL,
-		  GLOBAL_CONTROL_PPU_ENABLE | GLOBAL_CONTROL_MAX_FRAME_1632);
-
-	/* Set the VLAN ethertype to 0x8100. */
-	REG_WRITE(REG_GLOBAL, GLOBAL_CORE_TAG_TYPE, 0x8100);
-
-	/* Disable ARP mirroring, and configure the upstream port as
-	 * the port to which ingress and egress monitor frames are to
-	 * be sent.
-	 */
-	reg = upstream_port << GLOBAL_MONITOR_CONTROL_INGRESS_SHIFT |
-		upstream_port << GLOBAL_MONITOR_CONTROL_EGRESS_SHIFT |
-		GLOBAL_MONITOR_CONTROL_ARP_DISABLED;
-	REG_WRITE(REG_GLOBAL, GLOBAL_MONITOR_CONTROL, reg);
-
-	/* Set the switch's DSA device number and enable the use of
-	 * the routing table.
-	 */
-	REG_WRITE(REG_GLOBAL, GLOBAL_CONTROL_2,
-		  GLOBAL_CONTROL_2_MULTIPLE_CASCADE | (ds->index & 0x1f));
-
-	/* Force the priority of IGMP/MLD snoop frames and ARP frames
-	 * to the highest setting.
-	 */
-	REG_WRITE(REG_GLOBAL2, GLOBAL2_PRIO_OVERRIDE,
-		  GLOBAL2_PRIO_OVERRIDE_FORCE_SNOOP |
-		  7 << GLOBAL2_PRIO_OVERRIDE_SNOOP_SHIFT |
-		  GLOBAL2_PRIO_OVERRIDE_FORCE_ARP |
-		  7 << GLOBAL2_PRIO_OVERRIDE_ARP_SHIFT);
-
-	return 0;
-}
-
 static int mv88e6131_setup(struct dsa_switch *ds)
 {
 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
@@ -115,7 +67,7 @@ static int mv88e6131_setup(struct dsa_switch *ds)
 	if (ret < 0)
 		return ret;
 
-	ret = mv88e6131_setup_global(ds);
+	ret = mv88e6xxx_setup_global(ds);
 	if (ret < 0)
 		return ret;
 
