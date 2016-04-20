@@ -125,6 +125,8 @@ struct dsa_switch_tree {
 struct dsa_port {
 	struct dsa_switch	*ds;
 	int			port;
+
+	struct net_device	*br;
 };
 
 struct dsa_switch {

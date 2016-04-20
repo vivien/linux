@@ -64,18 +64,12 @@ static int dsa_slave_get_iflink(const struct net_device *dev)
 	return p->dp->ds->dst->master_netdev->ifindex;
 }
 
-static inline bool dsa_port_is_bridged(struct dsa_slave_priv *p)
-{
-	return !!p->bridge_dev;
-}
-
 static int dsa_slave_open(struct net_device *dev)
 {
 	struct dsa_slave_priv *p = netdev_priv(dev);
 	struct dsa_switch *ds = p->dp->ds;
 	struct net_device *master = ds->dst->master_netdev;
-	u8 stp_state = dsa_port_is_bridged(p) ?
-			BR_STATE_BLOCKING : BR_STATE_FORWARDING;
+	u8 stp_state = p->dp->br ? BR_STATE_BLOCKING : BR_STATE_FORWARDING;
 	int err;
 
 	if (!(master->flags & IFF_UP))
@@ -438,13 +432,13 @@ static int dsa_slave_bridge_port_join(struct net_device *dev,
 	struct dsa_switch *ds = p->dp->ds;
 	int ret = -EOPNOTSUPP;
 
-	p->bridge_dev = br;
+	p->dp->br = br;
 
 	if (ds->drv->port_bridge_join)
 		ret = ds->drv->port_bridge_join(ds, p->dp, br);
 
 	if (ret && ret != -EOPNOTSUPP) {
-		p->bridge_dev = NULL;
+		p->dp->br = NULL;
 		return ret;
 	}
 
@@ -455,9 +449,9 @@ static void dsa_slave_bridge_port_leave(struct net_device *dev)
 {
 	struct dsa_slave_priv *p = netdev_priv(dev);
 	struct dsa_switch *ds = p->dp->ds;
-	struct net_device *br = p->bridge_dev;
+	struct net_device *br = p->dp->br;
 
-	p->bridge_dev = NULL;
+	p->dp->br = NULL;
 
 	if (ds->drv->port_bridge_leave)
 		ds->drv->port_bridge_leave(ds, p->dp, br);
