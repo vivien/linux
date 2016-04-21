@@ -195,50 +195,6 @@ out:
 	return 0;
 }
 
-static int dsa_slave_port_vlan_add(struct net_device *dev,
-				   const struct switchdev_obj_port_vlan *vlan,
-				   struct switchdev_trans *trans)
-{
-	struct dsa_slave_priv *p = netdev_priv(dev);
-	struct dsa_switch *ds = p->dp->ds;
-
-	if (switchdev_trans_ph_prepare(trans)) {
-		if (!ds->drv->port_vlan_prepare || !ds->drv->port_vlan_add)
-			return -EOPNOTSUPP;
-
-		return ds->drv->port_vlan_prepare(ds, p->dp, vlan, trans);
-	}
-
-	ds->drv->port_vlan_add(ds, p->dp, vlan, trans);
-
-	return 0;
-}
-
-static int dsa_slave_port_vlan_del(struct net_device *dev,
-				   const struct switchdev_obj_port_vlan *vlan)
-{
-	struct dsa_slave_priv *p = netdev_priv(dev);
-	struct dsa_switch *ds = p->dp->ds;
-
-	if (!ds->drv->port_vlan_del)
-		return -EOPNOTSUPP;
-
-	return ds->drv->port_vlan_del(ds, p->dp, vlan);
-}
-
-static int dsa_slave_port_vlan_dump(struct net_device *dev,
-				    struct switchdev_obj_port_vlan *vlan,
-				    switchdev_obj_dump_cb_t *cb)
-{
-	struct dsa_slave_priv *p = netdev_priv(dev);
-	struct dsa_switch *ds = p->dp->ds;
-
-	if (ds->drv->port_vlan_dump)
-		return ds->drv->port_vlan_dump(ds, p->dp, vlan, cb);
-
-	return -EOPNOTSUPP;
-}
-
 static int dsa_slave_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 {
 	struct dsa_slave_priv *p = netdev_priv(dev);
@@ -323,9 +279,9 @@ static int dsa_slave_port_obj_add(struct net_device *dev,
 					    SWITCHDEV_OBJ_PORT_FDB(obj), trans);
 		break;
 	case SWITCHDEV_OBJ_ID_PORT_VLAN:
-		err = dsa_slave_port_vlan_add(dev,
-					      SWITCHDEV_OBJ_PORT_VLAN(obj),
-					      trans);
+		err = dsa_tree_port_vlan_add(dst, dp,
+					     SWITCHDEV_OBJ_PORT_VLAN(obj),
+					     trans);
 		break;
 	default:
 		err = -EOPNOTSUPP;
@@ -349,8 +305,8 @@ static int dsa_slave_port_obj_del(struct net_device *dev,
 					    SWITCHDEV_OBJ_PORT_FDB(obj));
 		break;
 	case SWITCHDEV_OBJ_ID_PORT_VLAN:
-		err = dsa_slave_port_vlan_del(dev,
-					      SWITCHDEV_OBJ_PORT_VLAN(obj));
+		err = dsa_tree_port_vlan_del(dst, dp,
+					     SWITCHDEV_OBJ_PORT_VLAN(obj));
 		break;
 	default:
 		err = -EOPNOTSUPP;
@@ -375,9 +331,8 @@ static int dsa_slave_port_obj_dump(struct net_device *dev,
 					     SWITCHDEV_OBJ_PORT_FDB(obj), cb);
 		break;
 	case SWITCHDEV_OBJ_ID_PORT_VLAN:
-		err = dsa_slave_port_vlan_dump(dev,
-					       SWITCHDEV_OBJ_PORT_VLAN(obj),
-					       cb);
+		err = dsa_tree_port_vlan_dump(dst, dp,
+					      SWITCHDEV_OBJ_PORT_VLAN(obj), cb);
 		break;
 	default:
 		err = -EOPNOTSUPP;

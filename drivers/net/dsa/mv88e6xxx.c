@@ -1378,6 +1378,9 @@ int mv88e6xxx_port_vlan_dump(struct dsa_switch *ds, struct dsa_port *dp,
 	u16 pvid;
 	int err;
 
+	if (dsa_port_is_external(dp, ds))
+		return -EOPNOTSUPP;
+
 	mutex_lock(&ps->smi_mutex);
 
 	err = _mv88e6xxx_port_pvid_get(ds, dp->port, &pvid);
@@ -1835,6 +1838,9 @@ int mv88e6xxx_port_vlan_prepare(struct dsa_switch *ds, struct dsa_port *dp,
 {
 	int err;
 
+	if (dsa_port_is_external(dp, ds))
+		return -EOPNOTSUPP;
+
 	/* If the requested port doesn't belong to the same bridge as the VLAN
 	 * members, do not support it (yet) and fallback to software VLAN.
 	 */
@@ -1873,6 +1879,9 @@ void mv88e6xxx_port_vlan_add(struct dsa_switch *ds, struct dsa_port *dp,
 	bool untagged = vlan->flags & BRIDGE_VLAN_INFO_UNTAGGED;
 	bool pvid = vlan->flags & BRIDGE_VLAN_INFO_PVID;
 	u16 vid;
+
+	if (dsa_port_is_external(dp, ds))
+		return;
 
 	mutex_lock(&ps->smi_mutex);
 
@@ -1929,6 +1938,9 @@ int mv88e6xxx_port_vlan_del(struct dsa_switch *ds, struct dsa_port *dp,
 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
 	u16 pvid, vid;
 	int err = 0;
+
+	if (dsa_port_is_external(dp, ds))
+		return -EOPNOTSUPP;
 
 	mutex_lock(&ps->smi_mutex);
 

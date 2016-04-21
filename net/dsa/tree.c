@@ -125,3 +125,63 @@ int dsa_tree_port_fdb_dump(struct dsa_switch_tree *dst, struct dsa_port *dp,
 
 	return 0;
 }
+
+int dsa_tree_port_vlan_add(struct dsa_switch_tree *dst, struct dsa_port *dp,
+			    const struct switchdev_obj_port_vlan *vlan,
+			    struct switchdev_trans *trans)
+{
+	struct dsa_switch *ds;
+	int err;
+
+	dsa_tree_for_each_switch(dst, ds) {
+		if (switchdev_trans_ph_prepare(trans)) {
+			if (!ds->drv->port_vlan_prepare ||
+			    !ds->drv->port_vlan_add)
+				return -EOPNOTSUPP;
+
+			err = ds->drv->port_vlan_prepare(ds, dp, vlan, trans);
+			if (err)
+				return err;
+		} else {
+			ds->drv->port_vlan_add(ds, dp, vlan, trans);
+		}
+	}
+
+	return 0;
+}
+
+int dsa_tree_port_vlan_del(struct dsa_switch_tree *dst, struct dsa_port *dp,
+			    const struct switchdev_obj_port_vlan *vlan)
+{
+	struct dsa_switch *ds;
+	int err;
+
+	dsa_tree_for_each_switch(dst, ds) {
+		if (!ds->drv->port_vlan_del)
+			return -EOPNOTSUPP;
+
+		err = ds->drv->port_vlan_del(ds, dp, vlan);
+		if (err)
+			return err;
+	}
+
+	return 0;
+}
+
+int dsa_tree_port_vlan_dump(struct dsa_switch_tree *dst, struct dsa_port *dp,
+			     struct switchdev_obj_port_vlan *vlan,
+			     switchdev_obj_dump_cb_t *cb)
+{
+	struct dsa_switch *ds;
+	int err;
+
+	dsa_tree_for_each_switch(dst, ds) {
+		if (ds->drv->port_vlan_dump) {
+			err = ds->drv->port_vlan_dump(ds, dp, vlan, cb);
+			if (err && err != -EOPNOTSUPP)
+				return err;
+		}
+	}
+
+	return 0;
+}

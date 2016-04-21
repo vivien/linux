@@ -60,6 +60,14 @@ int dsa_tree_port_fdb_del(struct dsa_switch_tree *dst, struct dsa_port *dp,
 int dsa_tree_port_fdb_dump(struct dsa_switch_tree *dst, struct dsa_port *dp,
 			   struct switchdev_obj_port_fdb *fdb,
 			   switchdev_obj_dump_cb_t *cb);
+int dsa_tree_port_vlan_add(struct dsa_switch_tree *dst, struct dsa_port *dp,
+			   const struct switchdev_obj_port_vlan *vlan,
+			   struct switchdev_trans *trans);
+int dsa_tree_port_vlan_del(struct dsa_switch_tree *dst, struct dsa_port *dp,
+			   const struct switchdev_obj_port_vlan *vlan);
+int dsa_tree_port_vlan_dump(struct dsa_switch_tree *dst, struct dsa_port *dp,
+			    struct switchdev_obj_port_vlan *vlan,
+			    switchdev_obj_dump_cb_t *cb);
 
 /* slave.c */
 extern const struct dsa_device_ops notag_netdev_ops;
