@@ -193,6 +193,12 @@ struct dsa_switch {
 	struct list_head	dp;
 };
 
+static inline bool dsa_port_is_external(struct dsa_port *dp,
+					struct dsa_switch *ds)
+{
+	return dp->ds != ds;
+}
+
 static inline bool dsa_is_cpu_port(struct dsa_switch *ds, int p)
 {
 	return !!(ds->index == ds->dst->cpu_switch && p == ds->dst->cpu_port);

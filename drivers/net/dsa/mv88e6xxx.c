@@ -2212,6 +2212,9 @@ int mv88e6xxx_port_bridge_join(struct dsa_switch *ds, struct dsa_port *dp,
 	struct dsa_port *intp;
 	int err;
 
+	if (dsa_port_is_external(dp, ds))
+		return -EOPNOTSUPP;
+
 	mutex_lock(&ps->smi_mutex);
 
 	/* Remap each port's VLANTable */
@@ -2233,6 +2236,9 @@ void mv88e6xxx_port_bridge_leave(struct dsa_switch *ds, struct dsa_port *dp,
 {
 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
 	struct dsa_port *intp;
+
+	if (dsa_port_is_external(dp, ds))
+		return;
 
 	mutex_lock(&ps->smi_mutex);
 

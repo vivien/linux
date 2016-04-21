@@ -46,6 +46,12 @@ struct dsa_slave_priv {
 /* dsa.c */
 extern char dsa_driver_version[];
 
+/* tree.c */
+int dsa_tree_bridge_port_join(struct dsa_switch_tree *dst, struct dsa_port *dp,
+			      struct net_device *br);
+void dsa_tree_bridge_port_leave(struct dsa_switch_tree *dst,
+				struct dsa_port *dp, struct net_device *br);
+
 /* slave.c */
 extern const struct dsa_device_ops notag_netdev_ops;
 void dsa_slave_mii_bus_init(struct dsa_switch *ds);

@@ -425,45 +425,6 @@ static int dsa_slave_port_obj_dump(struct net_device *dev,
 	return err;
 }
 
-static int dsa_slave_bridge_port_join(struct net_device *dev,
-				      struct net_device *br)
-{
-	struct dsa_slave_priv *p = netdev_priv(dev);
-	struct dsa_switch *ds = p->dp->ds;
-	int ret = -EOPNOTSUPP;
-
-	p->dp->br = br;
-
-	if (ds->drv->port_bridge_join)
-		ret = ds->drv->port_bridge_join(ds, p->dp, br);
-
-	if (ret && ret != -EOPNOTSUPP) {
-		p->dp->br = NULL;
-		return ret;
-	}
-
-	return 0;
-}
-
-static void dsa_slave_bridge_port_leave(struct net_device *dev)
-{
-	struct dsa_slave_priv *p = netdev_priv(dev);
-	struct dsa_switch *ds = p->dp->ds;
-	struct net_device *br = p->dp->br;
-
-	p->dp->br = NULL;
-
-	if (ds->drv->port_bridge_leave)
-		ds->drv->port_bridge_leave(ds, p->dp, br);
-
-	/* Port left the bridge, put in BR_STATE_DISABLED by the bridge layer,
-	 * so allow it to be in BR_STATE_FORWARDING to be kept functional
-	 */
-	if (ds->drv->port_stp_state_set)
-		ds->drv->port_stp_state_set(ds, p->dp->port,
-					    BR_STATE_FORWARDING);
-}
-
 static int dsa_slave_port_attr_get(struct net_device *dev,
 				   struct switchdev_attr *attr)
 {
@@ -1140,6 +1101,9 @@ static bool dsa_slave_dev_check(struct net_device *dev)
 static int dsa_slave_port_upper_event(struct net_device *dev,
 				      unsigned long event, void *ptr)
 {
+	struct dsa_slave_priv *p = netdev_priv(dev);
+	struct dsa_port *dp = p->dp;
+	struct dsa_switch_tree *dst = dp->ds->dst;
 	struct netdev_notifier_changeupper_info *info = ptr;
 	struct net_device *upper = info->upper_dev;
 	int err = 0;
@@ -1148,9 +1112,9 @@ static int dsa_slave_port_upper_event(struct net_device *dev,
 	case NETDEV_CHANGEUPPER:
 		if (netif_is_bridge_master(upper)) {
 			if (info->linking)
-				err = dsa_slave_bridge_port_join(dev, upper);
+				err = dsa_tree_bridge_port_join(dst, dp, upper);
 			else
-				dsa_slave_bridge_port_leave(dev);
+				dsa_tree_bridge_port_leave(dst, dp, upper);
 		}
 
 		break;

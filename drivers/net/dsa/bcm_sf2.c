@@ -498,6 +498,9 @@ static int bcm_sf2_sw_br_join(struct dsa_switch *ds, struct dsa_port *dp,
 	struct dsa_port *intp;
 	u32 reg, p_ctl;
 
+	if (dsa_port_is_external(dp, ds))
+		return -EOPNOTSUPP;
+
 	p_ctl = core_readl(priv, CORE_PORT_VLAN_CTL_PORT(dp->port));
 
 	dsa_switch_for_each_port(ds, intp, priv->hw_params.num_ports) {
@@ -530,6 +533,9 @@ static void bcm_sf2_sw_br_leave(struct dsa_switch *ds, struct dsa_port *dp,
 	struct bcm_sf2_priv *priv = ds_to_priv(ds);
 	struct dsa_port *intp;
 	u32 reg, p_ctl;
+
+	if (dsa_port_is_external(dp, ds))
+		return;
 
 	p_ctl = core_readl(priv, CORE_PORT_VLAN_CTL_PORT(dp->port));
 
