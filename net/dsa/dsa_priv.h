@@ -14,6 +14,7 @@
 #include <linux/phy.h>
 #include <linux/netdevice.h>
 #include <linux/netpoll.h>
+#include <net/switchdev.h>
 
 struct dsa_device_ops {
 	struct sk_buff *(*xmit)(struct sk_buff *skb, struct net_device *dev);
@@ -51,6 +52,14 @@ int dsa_tree_bridge_port_join(struct dsa_switch_tree *dst, struct dsa_port *dp,
 			      struct net_device *br);
 void dsa_tree_bridge_port_leave(struct dsa_switch_tree *dst,
 				struct dsa_port *dp, struct net_device *br);
+int dsa_tree_port_fdb_add(struct dsa_switch_tree *dst, struct dsa_port *dp,
+			  const struct switchdev_obj_port_fdb *fdb,
+			  struct switchdev_trans *trans);
+int dsa_tree_port_fdb_del(struct dsa_switch_tree *dst, struct dsa_port *dp,
+			  const struct switchdev_obj_port_fdb *fdb);
+int dsa_tree_port_fdb_dump(struct dsa_switch_tree *dst, struct dsa_port *dp,
+			   struct switchdev_obj_port_fdb *fdb,
+			   switchdev_obj_dump_cb_t *cb);
 
 /* slave.c */
 extern const struct dsa_device_ops notag_netdev_ops;

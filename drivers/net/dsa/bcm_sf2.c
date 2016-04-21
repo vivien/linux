@@ -733,6 +733,9 @@ static int bcm_sf2_sw_fdb_prepare(struct dsa_switch *ds, struct dsa_port *dp,
 				  const struct switchdev_obj_port_fdb *fdb,
 				  struct switchdev_trans *trans)
 {
+	if (dsa_port_is_external(dp, ds))
+		return -EOPNOTSUPP;
+
 	/* We do not need to do anything specific here yet */
 	return 0;
 }
@@ -743,6 +746,9 @@ static void bcm_sf2_sw_fdb_add(struct dsa_switch *ds, struct dsa_port *dp,
 {
 	struct bcm_sf2_priv *priv = ds_to_priv(ds);
 
+	if (dsa_port_is_external(dp, ds))
+		return;
+
 	if (bcm_sf2_arl_op(priv, 0, dp->port, fdb->addr, fdb->vid, true))
 		pr_err("%s: failed to add MAC address\n", __func__);
 }
@@ -751,6 +757,9 @@ static int bcm_sf2_sw_fdb_del(struct dsa_switch *ds, struct dsa_port *dp,
 			      const struct switchdev_obj_port_fdb *fdb)
 {
 	struct bcm_sf2_priv *priv = ds_to_priv(ds);
+
+	if (dsa_port_is_external(dp, ds))
+		return -EOPNOTSUPP;
 
 	return bcm_sf2_arl_op(priv, 0, dp->port, fdb->addr, fdb->vid, false);
 }
@@ -812,6 +821,9 @@ static int bcm_sf2_sw_fdb_dump(struct dsa_switch *ds, struct dsa_port *dp,
 	struct bcm_sf2_arl_entry results[2];
 	unsigned int count = 0;
 	int ret;
+
+	if (dsa_port_is_external(dp, ds))
+		return -EOPNOTSUPP;
 
 	dev = ds->ports[dp->port];
 

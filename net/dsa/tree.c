@@ -11,6 +11,7 @@
 #include <linux/if_bridge.h>
 #include <linux/list.h>
 #include <linux/netdevice.h>
+#include <net/switchdev.h>
 
 #include "dsa_priv.h"
 
@@ -63,4 +64,64 @@ void dsa_tree_bridge_port_leave(struct dsa_switch_tree *dst,
 			ds->drv->port_stp_state_set(ds, dp->port,
 						    BR_STATE_FORWARDING);
 	}
+}
+
+int dsa_tree_port_fdb_add(struct dsa_switch_tree *dst, struct dsa_port *dp,
+			  const struct switchdev_obj_port_fdb *fdb,
+			  struct switchdev_trans *trans)
+{
+	struct dsa_switch *ds;
+	int err;
+
+	dsa_tree_for_each_switch(dst, ds) {
+		if (switchdev_trans_ph_prepare(trans)) {
+			if (!ds->drv->port_fdb_prepare ||
+			    !ds->drv->port_fdb_add)
+				return -EOPNOTSUPP;
+
+			err = ds->drv->port_fdb_prepare(ds, dp, fdb, trans);
+			if (err)
+				return err;
+		} else {
+			ds->drv->port_fdb_add(ds, dp, fdb, trans);
+		}
+	}
+
+	return 0;
+}
+
+int dsa_tree_port_fdb_del(struct dsa_switch_tree *dst, struct dsa_port *dp,
+			  const struct switchdev_obj_port_fdb *fdb)
+{
+	struct dsa_switch *ds;
+	int err;
+
+	dsa_tree_for_each_switch(dst, ds) {
+		if (!ds->drv->port_fdb_del)
+			return -EOPNOTSUPP;
+
+		err = ds->drv->port_fdb_del(ds, dp, fdb);
+		if (err)
+			return err;
+	}
+
+	return 0;
+}
+
+int dsa_tree_port_fdb_dump(struct dsa_switch_tree *dst, struct dsa_port *dp,
+			   struct switchdev_obj_port_fdb *fdb,
+			   switchdev_obj_dump_cb_t *cb)
+{
+	struct dsa_switch *ds;
+	int err;
+
+	dsa_tree_for_each_switch(dst, ds) {
+		if (ds->drv->port_fdb_dump) {
+			err = ds->drv->port_fdb_dump(ds, dp, fdb, cb);
+			if (err && err != -EOPNOTSUPP)
+				return err;
+		}
+	}
+
+	return 0;
 }
