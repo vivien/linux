@@ -857,7 +857,7 @@ static int dsa_setup_dst(struct dsa_switch_tree *dst, struct net_device *dev,
 			continue;
 		}
 
-		dst->ds[i] = ds;
+		dst->switches[i] = ds;
 
 		++configured;
 	}
@@ -953,7 +953,7 @@ static void dsa_remove_dst(struct dsa_switch_tree *dst)
 	wmb();
 
 	for (i = 0; i < dst->pd->nr_chips; i++) {
-		struct dsa_switch *ds = dst->ds[i];
+		struct dsa_switch *ds = dst->switches[i];
 
 		if (ds)
 			dsa_switch_destroy(ds);
@@ -1006,7 +1006,7 @@ static int dsa_suspend(struct device *d)
 	int i, ret = 0;
 
 	for (i = 0; i < dst->pd->nr_chips; i++) {
-		struct dsa_switch *ds = dst->ds[i];
+		struct dsa_switch *ds = dst->switches[i];
 
 		if (ds != NULL)
 			ret = dsa_switch_suspend(ds);
@@ -1022,7 +1022,7 @@ static int dsa_resume(struct device *d)
 	int i, ret = 0;
 
 	for (i = 0; i < dst->pd->nr_chips; i++) {
-		struct dsa_switch *ds = dst->ds[i];
+		struct dsa_switch *ds = dst->switches[i];
 
 		if (ds != NULL)
 			ret = dsa_switch_resume(ds);

@@ -124,7 +124,7 @@ struct dsa_switch_tree {
 	/*
 	 * Data for the individual switch chips.
 	 */
-	struct dsa_switch	*ds[DSA_MAX_SWITCHES];
+	struct dsa_switch	*switches[DSA_MAX_SWITCHES];
 };
 
 struct dsa_port {

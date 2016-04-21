@@ -122,7 +122,7 @@ static int edsa_rcv(struct sk_buff *skb, struct net_device *dev,
 	 */
 	if (source_device >= dst->pd->nr_chips)
 		goto out_drop;
-	ds = dst->ds[source_device];
+	ds = dst->switches[source_device];
 	if (source_port >= DSA_MAX_PORTS || ds->ports[source_port] == NULL)
 		goto out_drop;
 
