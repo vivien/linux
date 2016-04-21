@@ -32,10 +32,15 @@ enum dsa_tag_protocol {
 #define DSA_MAX_SWITCHES	4
 #define DSA_MAX_PORTS		12
 
+
+#define dsa_tree_for_each_switch(_dst, _ds)		\
+	list_for_each_entry(_ds, &_dst->ds, list)
+
 #define dsa_switch_for_each_port(_ds, _dp, _num_ports)			\
 	for (_dp = list_first_entry(&_ds->dp, typeof(*_dp), list);	\
 	     &_dp->list != (&_ds->dp) && _dp->port < _num_ports;	\
 	     _dp = list_next_entry(_dp, list))
+
 
 struct dsa_chip_data {
 	/*
@@ -125,6 +130,8 @@ struct dsa_switch_tree {
 	 * Data for the individual switch chips.
 	 */
 	struct dsa_switch	*switches[DSA_MAX_SWITCHES];
+
+	struct list_head	ds;
 };
 
 struct dsa_port {
@@ -137,6 +144,8 @@ struct dsa_port {
 };
 
 struct dsa_switch {
+	struct list_head	list;
+
 	/*
 	 * Parent switch tree, and switch index.
 	 */

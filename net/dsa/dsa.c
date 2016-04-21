@@ -842,6 +842,8 @@ static int dsa_setup_dst(struct dsa_switch_tree *dst, struct net_device *dev,
 	int i;
 	unsigned configured = 0;
 
+	INIT_LIST_HEAD(&dst->ds);
+
 	dst->pd = pd;
 	dst->master_netdev = dev;
 	dst->cpu_switch = -1;
@@ -858,6 +860,7 @@ static int dsa_setup_dst(struct dsa_switch_tree *dst, struct net_device *dev,
 		}
 
 		dst->switches[i] = ds;
+		list_add_tail(&ds->list, &dst->ds);
 
 		++configured;
 	}
