@@ -2031,7 +2031,7 @@ static int _mv88e6xxx_port_fdb_load(struct dsa_switch *ds, int port,
 	return _mv88e6xxx_atu_load(ds, &entry);
 }
 
-int mv88e6xxx_port_fdb_prepare(struct dsa_switch *ds, int port,
+int mv88e6xxx_port_fdb_prepare(struct dsa_switch *ds, struct dsa_port *dp,
 			       const struct switchdev_obj_port_fdb *fdb,
 			       struct switchdev_trans *trans)
 {
@@ -2041,7 +2041,7 @@ int mv88e6xxx_port_fdb_prepare(struct dsa_switch *ds, int port,
 	return 0;
 }
 
-void mv88e6xxx_port_fdb_add(struct dsa_switch *ds, int port,
+void mv88e6xxx_port_fdb_add(struct dsa_switch *ds, struct dsa_port *dp,
 			    const struct switchdev_obj_port_fdb *fdb,
 			    struct switchdev_trans *trans)
 {
@@ -2051,19 +2051,19 @@ void mv88e6xxx_port_fdb_add(struct dsa_switch *ds, int port,
 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
 
 	mutex_lock(&ps->smi_mutex);
-	if (_mv88e6xxx_port_fdb_load(ds, port, fdb->addr, fdb->vid, state))
-		netdev_err(ds->ports[port], "failed to load MAC address\n");
+	if (_mv88e6xxx_port_fdb_load(ds, dp->port, fdb->addr, fdb->vid, state))
+		netdev_err(ds->ports[dp->port], "failed to load MAC address\n");
 	mutex_unlock(&ps->smi_mutex);
 }
 
-int mv88e6xxx_port_fdb_del(struct dsa_switch *ds, int port,
+int mv88e6xxx_port_fdb_del(struct dsa_switch *ds, struct dsa_port *dp,
 			   const struct switchdev_obj_port_fdb *fdb)
 {
 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
 	int ret;
 
 	mutex_lock(&ps->smi_mutex);
-	ret = _mv88e6xxx_port_fdb_load(ds, port, fdb->addr, fdb->vid,
+	ret = _mv88e6xxx_port_fdb_load(ds, dp->port, fdb->addr, fdb->vid,
 				       GLOBAL_ATU_DATA_STATE_UNUSED);
 	mutex_unlock(&ps->smi_mutex);
 
@@ -2156,7 +2156,7 @@ static int _mv88e6xxx_port_fdb_dump_one(struct dsa_switch *ds, u16 fid, u16 vid,
 	return err;
 }
 
-int mv88e6xxx_port_fdb_dump(struct dsa_switch *ds, int port,
+int mv88e6xxx_port_fdb_dump(struct dsa_switch *ds, struct dsa_port *dp,
 			    struct switchdev_obj_port_fdb *fdb,
 			    int (*cb)(struct switchdev_obj *obj))
 {
@@ -2170,11 +2170,11 @@ int mv88e6xxx_port_fdb_dump(struct dsa_switch *ds, int port,
 	mutex_lock(&ps->smi_mutex);
 
 	/* Dump port's default Filtering Information Database (VLAN ID 0) */
-	err = _mv88e6xxx_port_fid_get(ds, port, &fid);
+	err = _mv88e6xxx_port_fid_get(ds, dp->port, &fid);
 	if (err)
 		goto unlock;
 
-	err = _mv88e6xxx_port_fdb_dump_one(ds, fid, 0, port, fdb, cb);
+	err = _mv88e6xxx_port_fdb_dump_one(ds, fid, 0, dp->port, fdb, cb);
 	if (err)
 		goto unlock;
 
@@ -2191,8 +2191,8 @@ int mv88e6xxx_port_fdb_dump(struct dsa_switch *ds, int port,
 		if (!vlan.valid)
 			break;
 
-		err = _mv88e6xxx_port_fdb_dump_one(ds, vlan.fid, vlan.vid, port,
-						   fdb, cb);
+		err = _mv88e6xxx_port_fdb_dump_one(ds, vlan.fid, vlan.vid,
+						   dp->port, fdb, cb);
 		if (err)
 			break;
 	} while (vlan.vid < GLOBAL_VTU_VID_MASK);

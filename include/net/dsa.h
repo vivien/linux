@@ -330,15 +330,15 @@ struct dsa_switch_driver {
 	/*
 	 * Forwarding database
 	 */
-	int	(*port_fdb_prepare)(struct dsa_switch *ds, int port,
+	int	(*port_fdb_prepare)(struct dsa_switch *ds, struct dsa_port *dp,
 				    const struct switchdev_obj_port_fdb *fdb,
 				    struct switchdev_trans *trans);
-	void	(*port_fdb_add)(struct dsa_switch *ds, int port,
+	void	(*port_fdb_add)(struct dsa_switch *ds, struct dsa_port *dp,
 				const struct switchdev_obj_port_fdb *fdb,
 				struct switchdev_trans *trans);
-	int	(*port_fdb_del)(struct dsa_switch *ds, int port,
+	int	(*port_fdb_del)(struct dsa_switch *ds, struct dsa_port *dp,
 				const struct switchdev_obj_port_fdb *fdb);
-	int	(*port_fdb_dump)(struct dsa_switch *ds, int port,
+	int	(*port_fdb_dump)(struct dsa_switch *ds, struct dsa_port *dp,
 				 struct switchdev_obj_port_fdb *fdb,
 				 int (*cb)(struct switchdev_obj *obj));
 };

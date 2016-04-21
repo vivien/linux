@@ -256,10 +256,10 @@ static int dsa_slave_port_fdb_add(struct net_device *dev,
 		if (!ds->drv->port_fdb_prepare || !ds->drv->port_fdb_add)
 			return -EOPNOTSUPP;
 
-		return ds->drv->port_fdb_prepare(ds, p->dp->port, fdb, trans);
+		return ds->drv->port_fdb_prepare(ds, p->dp, fdb, trans);
 	}
 
-	ds->drv->port_fdb_add(ds, p->dp->port, fdb, trans);
+	ds->drv->port_fdb_add(ds, p->dp, fdb, trans);
 
 	return 0;
 }
@@ -272,7 +272,7 @@ static int dsa_slave_port_fdb_del(struct net_device *dev,
 	int ret = -EOPNOTSUPP;
 
 	if (ds->drv->port_fdb_del)
-		ret = ds->drv->port_fdb_del(ds, p->dp->port, fdb);
+		ret = ds->drv->port_fdb_del(ds, p->dp, fdb);
 
 	return ret;
 }
@@ -285,7 +285,7 @@ static int dsa_slave_port_fdb_dump(struct net_device *dev,
 	struct dsa_switch *ds = p->dp->ds;
 
 	if (ds->drv->port_fdb_dump)
-		return ds->drv->port_fdb_dump(ds, p->dp->port, fdb, cb);
+		return ds->drv->port_fdb_dump(ds, p->dp, fdb, cb);
 
 	return -EOPNOTSUPP;
 }

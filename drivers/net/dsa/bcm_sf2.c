@@ -725,7 +725,7 @@ static int bcm_sf2_arl_op(struct bcm_sf2_priv *priv, int op, int port,
 	return bcm_sf2_arl_read(priv, mac, vid, &ent, &idx, is_valid);
 }
 
-static int bcm_sf2_sw_fdb_prepare(struct dsa_switch *ds, int port,
+static int bcm_sf2_sw_fdb_prepare(struct dsa_switch *ds, struct dsa_port *dp,
 				  const struct switchdev_obj_port_fdb *fdb,
 				  struct switchdev_trans *trans)
 {
@@ -733,22 +733,22 @@ static int bcm_sf2_sw_fdb_prepare(struct dsa_switch *ds, int port,
 	return 0;
 }
 
-static void bcm_sf2_sw_fdb_add(struct dsa_switch *ds, int port,
+static void bcm_sf2_sw_fdb_add(struct dsa_switch *ds, struct dsa_port *dp,
 			       const struct switchdev_obj_port_fdb *fdb,
 			       struct switchdev_trans *trans)
 {
 	struct bcm_sf2_priv *priv = ds_to_priv(ds);
 
-	if (bcm_sf2_arl_op(priv, 0, port, fdb->addr, fdb->vid, true))
+	if (bcm_sf2_arl_op(priv, 0, dp->port, fdb->addr, fdb->vid, true))
 		pr_err("%s: failed to add MAC address\n", __func__);
 }
 
-static int bcm_sf2_sw_fdb_del(struct dsa_switch *ds, int port,
+static int bcm_sf2_sw_fdb_del(struct dsa_switch *ds, struct dsa_port *dp,
 			      const struct switchdev_obj_port_fdb *fdb)
 {
 	struct bcm_sf2_priv *priv = ds_to_priv(ds);
 
-	return bcm_sf2_arl_op(priv, 0, port, fdb->addr, fdb->vid, false);
+	return bcm_sf2_arl_op(priv, 0, dp->port, fdb->addr, fdb->vid, false);
 }
 
 static int bcm_sf2_arl_search_wait(struct bcm_sf2_priv *priv)
@@ -799,15 +799,17 @@ static int bcm_sf2_sw_fdb_copy(struct net_device *dev, int port,
 	return cb(&fdb->obj);
 }
 
-static int bcm_sf2_sw_fdb_dump(struct dsa_switch *ds, int port,
+static int bcm_sf2_sw_fdb_dump(struct dsa_switch *ds, struct dsa_port *dp,
 			       struct switchdev_obj_port_fdb *fdb,
 			       int (*cb)(struct switchdev_obj *obj))
 {
 	struct bcm_sf2_priv *priv = ds_to_priv(ds);
-	struct net_device *dev = ds->ports[port];
+	struct net_device *dev;
 	struct bcm_sf2_arl_entry results[2];
 	unsigned int count = 0;
 	int ret;
+
+	dev = ds->ports[dp->port];
 
 	/* Start search operation */
 	core_writel(priv, ARLA_SRCH_STDN, CORE_ARLA_SRCH_CTL);
@@ -819,12 +821,12 @@ static int bcm_sf2_sw_fdb_dump(struct dsa_switch *ds, int port,
 
 		/* Read both entries, then return their values back */
 		bcm_sf2_arl_search_rd(priv, 0, &results[0]);
-		ret = bcm_sf2_sw_fdb_copy(dev, port, &results[0], fdb, cb);
+		ret = bcm_sf2_sw_fdb_copy(dev, dp->port, &results[0], fdb, cb);
 		if (ret)
 			return ret;
 
 		bcm_sf2_arl_search_rd(priv, 1, &results[1]);
-		ret = bcm_sf2_sw_fdb_copy(dev, port, &results[1], fdb, cb);
+		ret = bcm_sf2_sw_fdb_copy(dev, dp->port, &results[1], fdb, cb);
 		if (ret)
 			return ret;
 
