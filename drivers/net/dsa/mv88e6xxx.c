@@ -1367,7 +1367,7 @@ static int _mv88e6xxx_vtu_getnext(struct dsa_switch *ds,
 	return 0;
 }
 
-int mv88e6xxx_port_vlan_dump(struct dsa_switch *ds, int port,
+int mv88e6xxx_port_vlan_dump(struct dsa_switch *ds, struct dsa_port *dp,
 			     struct switchdev_obj_port_vlan *vlan,
 			     int (*cb)(struct switchdev_obj *obj))
 {
@@ -1378,7 +1378,7 @@ int mv88e6xxx_port_vlan_dump(struct dsa_switch *ds, int port,
 
 	mutex_lock(&ps->smi_mutex);
 
-	err = _mv88e6xxx_port_pvid_get(ds, port, &pvid);
+	err = _mv88e6xxx_port_pvid_get(ds, dp->port, &pvid);
 	if (err)
 		goto unlock;
 
@@ -1394,14 +1394,15 @@ int mv88e6xxx_port_vlan_dump(struct dsa_switch *ds, int port,
 		if (!next.valid)
 			break;
 
-		if (next.data[port] == GLOBAL_VTU_DATA_MEMBER_TAG_NON_MEMBER)
+		if (next.data[dp->port] ==
+		    GLOBAL_VTU_DATA_MEMBER_TAG_NON_MEMBER)
 			continue;
 
 		/* reinit and dump this VLAN obj */
 		vlan->vid_begin = vlan->vid_end = next.vid;
 		vlan->flags = 0;
 
-		if (next.data[port] == GLOBAL_VTU_DATA_MEMBER_TAG_UNTAGGED)
+		if (next.data[dp->port] == GLOBAL_VTU_DATA_MEMBER_TAG_UNTAGGED)
 			vlan->flags |= BRIDGE_VLAN_INFO_UNTAGGED;
 
 		if (next.vid == pvid)
@@ -1789,7 +1790,7 @@ static const char * const mv88e6xxx_port_8021q_mode_names[] = {
 	[PORT_CONTROL_2_8021Q_SECURE] = "Secure",
 };
 
-int mv88e6xxx_port_vlan_filtering(struct dsa_switch *ds, int port,
+int mv88e6xxx_port_vlan_filtering(struct dsa_switch *ds, struct dsa_port *dp,
 				  bool vlan_filtering)
 {
 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
@@ -1799,7 +1800,7 @@ int mv88e6xxx_port_vlan_filtering(struct dsa_switch *ds, int port,
 
 	mutex_lock(&ps->smi_mutex);
 
-	ret = _mv88e6xxx_reg_read(ds, REG_PORT(port), PORT_CONTROL_2);
+	ret = _mv88e6xxx_reg_read(ds, REG_PORT(dp->port), PORT_CONTROL_2);
 	if (ret < 0)
 		goto unlock;
 
@@ -1809,12 +1810,12 @@ int mv88e6xxx_port_vlan_filtering(struct dsa_switch *ds, int port,
 		ret &= ~PORT_CONTROL_2_8021Q_MASK;
 		ret |= new & PORT_CONTROL_2_8021Q_MASK;
 
-		ret = _mv88e6xxx_reg_write(ds, REG_PORT(port), PORT_CONTROL_2,
-					   ret);
+		ret = _mv88e6xxx_reg_write(ds, REG_PORT(dp->port),
+					   PORT_CONTROL_2, ret);
 		if (ret < 0)
 			goto unlock;
 
-		netdev_dbg(ds->ports[port], "802.1Q Mode %s (was %s)\n",
+		netdev_dbg(ds->ports[dp->port], "802.1Q Mode %s (was %s)\n",
 			   mv88e6xxx_port_8021q_mode_names[new],
 			   mv88e6xxx_port_8021q_mode_names[old]);
 	}
@@ -1826,7 +1827,7 @@ unlock:
 	return ret;
 }
 
-int mv88e6xxx_port_vlan_prepare(struct dsa_switch *ds, int port,
+int mv88e6xxx_port_vlan_prepare(struct dsa_switch *ds, struct dsa_port *dp,
 				const struct switchdev_obj_port_vlan *vlan,
 				struct switchdev_trans *trans)
 {
@@ -1835,7 +1836,7 @@ int mv88e6xxx_port_vlan_prepare(struct dsa_switch *ds, int port,
 	/* If the requested port doesn't belong to the same bridge as the VLAN
 	 * members, do not support it (yet) and fallback to software VLAN.
 	 */
-	err = mv88e6xxx_port_check_hw_vlan(ds, port, vlan->vid_begin,
+	err = mv88e6xxx_port_check_hw_vlan(ds, dp->port, vlan->vid_begin,
 					   vlan->vid_end);
 	if (err)
 		return err;
@@ -1863,7 +1864,7 @@ static int _mv88e6xxx_port_vlan_add(struct dsa_switch *ds, int port, u16 vid,
 	return _mv88e6xxx_vtu_loadpurge(ds, &vlan);
 }
 
-void mv88e6xxx_port_vlan_add(struct dsa_switch *ds, int port,
+void mv88e6xxx_port_vlan_add(struct dsa_switch *ds, struct dsa_port *dp,
 			     const struct switchdev_obj_port_vlan *vlan,
 			     struct switchdev_trans *trans)
 {
@@ -1875,12 +1876,12 @@ void mv88e6xxx_port_vlan_add(struct dsa_switch *ds, int port,
 	mutex_lock(&ps->smi_mutex);
 
 	for (vid = vlan->vid_begin; vid <= vlan->vid_end; ++vid)
-		if (_mv88e6xxx_port_vlan_add(ds, port, vid, untagged))
-			netdev_err(ds->ports[port], "failed to add VLAN %d%c\n",
+		if (_mv88e6xxx_port_vlan_add(ds, dp->port, vid, untagged))
+			netdev_err(ds->ports[dp->port], "failed to add VLAN %d%c\n",
 				   vid, untagged ? 'u' : 't');
 
-	if (pvid && _mv88e6xxx_port_pvid_set(ds, port, vlan->vid_end))
-		netdev_err(ds->ports[port], "failed to set PVID %d\n",
+	if (pvid && _mv88e6xxx_port_pvid_set(ds, dp->port, vlan->vid_end))
+		netdev_err(ds->ports[dp->port], "failed to set PVID %d\n",
 			   vlan->vid_end);
 
 	mutex_unlock(&ps->smi_mutex);
@@ -1921,7 +1922,7 @@ static int _mv88e6xxx_port_vlan_del(struct dsa_switch *ds, int port, u16 vid)
 	return _mv88e6xxx_atu_remove(ds, vlan.fid, port, false);
 }
 
-int mv88e6xxx_port_vlan_del(struct dsa_switch *ds, int port,
+int mv88e6xxx_port_vlan_del(struct dsa_switch *ds, struct dsa_port *dp,
 			    const struct switchdev_obj_port_vlan *vlan)
 {
 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
@@ -1930,17 +1931,17 @@ int mv88e6xxx_port_vlan_del(struct dsa_switch *ds, int port,
 
 	mutex_lock(&ps->smi_mutex);
 
-	err = _mv88e6xxx_port_pvid_get(ds, port, &pvid);
+	err = _mv88e6xxx_port_pvid_get(ds, dp->port, &pvid);
 	if (err)
 		goto unlock;
 
 	for (vid = vlan->vid_begin; vid <= vlan->vid_end; ++vid) {
-		err = _mv88e6xxx_port_vlan_del(ds, port, vid);
+		err = _mv88e6xxx_port_vlan_del(ds, dp->port, vid);
 		if (err)
 			goto unlock;
 
 		if (vid == pvid) {
-			err = _mv88e6xxx_port_pvid_set(ds, port, 0);
+			err = _mv88e6xxx_port_pvid_set(ds, dp->port, 0);
 			if (err)
 				goto unlock;
 		}

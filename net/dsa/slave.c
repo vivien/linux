@@ -212,10 +212,10 @@ static int dsa_slave_port_vlan_add(struct net_device *dev,
 		if (!ds->drv->port_vlan_prepare || !ds->drv->port_vlan_add)
 			return -EOPNOTSUPP;
 
-		return ds->drv->port_vlan_prepare(ds, p->dp->port, vlan, trans);
+		return ds->drv->port_vlan_prepare(ds, p->dp, vlan, trans);
 	}
 
-	ds->drv->port_vlan_add(ds, p->dp->port, vlan, trans);
+	ds->drv->port_vlan_add(ds, p->dp, vlan, trans);
 
 	return 0;
 }
@@ -229,7 +229,7 @@ static int dsa_slave_port_vlan_del(struct net_device *dev,
 	if (!ds->drv->port_vlan_del)
 		return -EOPNOTSUPP;
 
-	return ds->drv->port_vlan_del(ds, p->dp->port, vlan);
+	return ds->drv->port_vlan_del(ds, p->dp, vlan);
 }
 
 static int dsa_slave_port_vlan_dump(struct net_device *dev,
@@ -240,7 +240,7 @@ static int dsa_slave_port_vlan_dump(struct net_device *dev,
 	struct dsa_switch *ds = p->dp->ds;
 
 	if (ds->drv->port_vlan_dump)
-		return ds->drv->port_vlan_dump(ds, p->dp->port, vlan, cb);
+		return ds->drv->port_vlan_dump(ds, p->dp, vlan, cb);
 
 	return -EOPNOTSUPP;
 }
@@ -327,7 +327,7 @@ static int dsa_slave_vlan_filtering(struct net_device *dev,
 		return 0;
 
 	if (ds->drv->port_vlan_filtering)
-		return ds->drv->port_vlan_filtering(ds, p->dp->port,
+		return ds->drv->port_vlan_filtering(ds, p->dp,
 						    attr->u.vlan_filtering);
 
 	return 0;

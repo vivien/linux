@@ -313,17 +313,18 @@ struct dsa_switch_driver {
 	/*
 	 * VLAN support
 	 */
-	int	(*port_vlan_filtering)(struct dsa_switch *ds, int port,
+	int	(*port_vlan_filtering)(struct dsa_switch *ds,
+				       struct dsa_port *dp,
 				       bool vlan_filtering);
-	int	(*port_vlan_prepare)(struct dsa_switch *ds, int port,
+	int	(*port_vlan_prepare)(struct dsa_switch *ds, struct dsa_port *dp,
 				     const struct switchdev_obj_port_vlan *vlan,
 				     struct switchdev_trans *trans);
-	void	(*port_vlan_add)(struct dsa_switch *ds, int port,
+	void	(*port_vlan_add)(struct dsa_switch *ds, struct dsa_port *dp,
 				 const struct switchdev_obj_port_vlan *vlan,
 				 struct switchdev_trans *trans);
-	int	(*port_vlan_del)(struct dsa_switch *ds, int port,
+	int	(*port_vlan_del)(struct dsa_switch *ds, struct dsa_port *dp,
 				 const struct switchdev_obj_port_vlan *vlan);
-	int	(*port_vlan_dump)(struct dsa_switch *ds, int port,
+	int	(*port_vlan_dump)(struct dsa_switch *ds, struct dsa_port *dp,
 				  struct switchdev_obj_port_vlan *vlan,
 				  int (*cb)(struct switchdev_obj *obj));
 
