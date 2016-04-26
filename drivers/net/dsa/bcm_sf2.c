@@ -525,10 +525,10 @@ static int bcm_sf2_sw_br_join(struct dsa_switch *ds, int port,
 	return 0;
 }
 
-static void bcm_sf2_sw_br_leave(struct dsa_switch *ds, int port)
+static void bcm_sf2_sw_br_leave(struct dsa_switch *ds, int port,
+				struct net_device *bridge)
 {
 	struct bcm_sf2_priv *priv = ds_to_priv(ds);
-	struct net_device *bridge = priv->port_sts[port].bridge_dev;
 	unsigned int i;
 	u32 reg, p_ctl;
 

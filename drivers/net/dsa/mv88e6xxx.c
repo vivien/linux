@@ -2227,10 +2227,10 @@ int mv88e6xxx_port_bridge_join(struct dsa_switch *ds, int port,
 	return err;
 }
 
-void mv88e6xxx_port_bridge_leave(struct dsa_switch *ds, int port)
+void mv88e6xxx_port_bridge_leave(struct dsa_switch *ds, int port,
+				 struct net_device *bridge)
 {
 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
-	struct net_device *bridge = ps->ports[port].bridge_dev;
 	int i;
 
 	mutex_lock(&ps->smi_mutex);

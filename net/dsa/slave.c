@@ -443,19 +443,24 @@ static int dsa_slave_bridge_port_join(struct net_device *dev,
 	if (ds->drv->port_bridge_join)
 		ret = ds->drv->port_bridge_join(ds, p->dp->port, br);
 
-	return ret == -EOPNOTSUPP ? 0 : ret;
+	if (ret && ret != -EOPNOTSUPP) {
+		p->bridge_dev = NULL;
+		return ret;
+	}
+
+	return 0;
 }
 
 static void dsa_slave_bridge_port_leave(struct net_device *dev)
 {
 	struct dsa_slave_priv *p = netdev_priv(dev);
 	struct dsa_switch *ds = p->dp->ds;
-
-
-	if (ds->drv->port_bridge_leave)
-		ds->drv->port_bridge_leave(ds, p->dp->port);
+	struct net_device *br = p->bridge_dev;
 
 	p->bridge_dev = NULL;
+
+	if (ds->drv->port_bridge_leave)
+		ds->drv->port_bridge_leave(ds, p->dp->port, br);
 
 	/* Port left the bridge, put in BR_STATE_DISABLED by the bridge layer,
 	 * so allow it to be in BR_STATE_FORWARDING to be kept functional
