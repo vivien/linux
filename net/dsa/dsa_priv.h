@@ -26,13 +26,6 @@ struct dsa_slave_priv {
 					struct net_device *dev);
 
 	/*
-	 * Which switch this port is a part of, and the port index
-	 * for this port.
-	 */
-	struct dsa_switch	*parent;
-	u8			port;
-
-	/*
 	 * The phylib phy_device pointer for the PHY connected
 	 * to this port.
 	 */
@@ -46,6 +39,9 @@ struct dsa_slave_priv {
 #ifdef CONFIG_NET_POLL_CONTROLLER
 	struct netpoll		*netpoll;
 #endif
+
+	/* DSA specific data */
+	struct dsa_port		*dp;
 };
 
 /* dsa.c */
@@ -54,8 +50,7 @@ extern char dsa_driver_version[];
 /* slave.c */
 extern const struct dsa_device_ops notag_netdev_ops;
 void dsa_slave_mii_bus_init(struct dsa_switch *ds);
-int dsa_slave_create(struct dsa_switch *ds, struct device *parent,
-		     int port, char *name);
+int dsa_slave_create(struct dsa_port *dp, struct device *parent, char *name);
 void dsa_slave_destroy(struct net_device *slave_dev);
 int dsa_slave_suspend(struct net_device *slave_dev);
 int dsa_slave_resume(struct net_device *slave_dev);

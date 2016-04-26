@@ -219,6 +219,7 @@ static int dsa_switch_setup_one(struct dsa_switch *ds, struct device *parent)
 {
 	struct dsa_switch_driver *drv = ds->drv;
 	struct dsa_switch_tree *dst = ds->dst;
+	struct dsa_port *dp[DSA_MAX_PORTS];
 	struct dsa_chip_data *pd = ds->pd;
 	bool valid_name_found = false;
 	int index = ds->index;
@@ -229,6 +230,13 @@ static int dsa_switch_setup_one(struct dsa_switch *ds, struct device *parent)
 	 */
 	for (i = 0; i < DSA_MAX_PORTS; i++) {
 		char *name;
+
+		dp[i] = devm_kzalloc(parent, sizeof(*dp), GFP_KERNEL);
+		if (dp[i] == NULL)
+			return -ENOMEM;
+
+		dp[i]->ds = ds;
+		dp[i]->port = i;
 
 		name = pd->port_names[i];
 		if (name == NULL)
@@ -328,7 +336,7 @@ static int dsa_switch_setup_one(struct dsa_switch *ds, struct device *parent)
 		if (!(ds->enabled_port_mask & (1 << i)))
 			continue;
 
-		ret = dsa_slave_create(ds, parent, i, pd->port_names[i]);
+		ret = dsa_slave_create(dp[i], parent, pd->port_names[i]);
 		if (ret < 0) {
 			netdev_err(dst->master_netdev, "[%d]: can't create dsa slave device for port %d(%s): %d\n",
 				   index, i, pd->port_names[i], ret);

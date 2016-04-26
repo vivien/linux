@@ -122,6 +122,11 @@ struct dsa_switch_tree {
 	struct dsa_switch	*ds[DSA_MAX_SWITCHES];
 };
 
+struct dsa_port {
+	struct dsa_switch	*ds;
+	int			port;
+};
+
 struct dsa_switch {
 	/*
 	 * Parent switch tree, and switch index.
