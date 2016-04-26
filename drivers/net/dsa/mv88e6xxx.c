@@ -2203,7 +2203,7 @@ unlock:
 	return err;
 }
 
-int mv88e6xxx_port_bridge_join(struct dsa_switch *ds, int port,
+int mv88e6xxx_port_bridge_join(struct dsa_switch *ds, struct dsa_port *dp,
 			       struct net_device *bridge)
 {
 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
@@ -2212,7 +2212,7 @@ int mv88e6xxx_port_bridge_join(struct dsa_switch *ds, int port,
 	mutex_lock(&ps->smi_mutex);
 
 	/* Assign the bridge and remap each port's VLANTable */
-	ps->ports[port].bridge_dev = bridge;
+	ps->ports[dp->port].bridge_dev = bridge;
 
 	for (i = 0; i < ps->info->num_ports; ++i) {
 		if (ps->ports[i].bridge_dev == bridge) {
@@ -2227,7 +2227,7 @@ int mv88e6xxx_port_bridge_join(struct dsa_switch *ds, int port,
 	return err;
 }
 
-void mv88e6xxx_port_bridge_leave(struct dsa_switch *ds, int port,
+void mv88e6xxx_port_bridge_leave(struct dsa_switch *ds, struct dsa_port *dp,
 				 struct net_device *bridge)
 {
 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
@@ -2236,10 +2236,10 @@ void mv88e6xxx_port_bridge_leave(struct dsa_switch *ds, int port,
 	mutex_lock(&ps->smi_mutex);
 
 	/* Unassign the bridge and remap each port's VLANTable */
-	ps->ports[port].bridge_dev = NULL;
+	ps->ports[dp->port].bridge_dev = NULL;
 
 	for (i = 0; i < ps->info->num_ports; ++i)
-		if (i == port || ps->ports[i].bridge_dev == bridge)
+		if (i == dp->port || ps->ports[i].bridge_dev == bridge)
 			if (_mv88e6xxx_port_based_vlan_map(ds, i))
 				netdev_warn(ds->ports[i], "failed to remap\n");
 

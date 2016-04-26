@@ -441,7 +441,7 @@ static int dsa_slave_bridge_port_join(struct net_device *dev,
 	p->bridge_dev = br;
 
 	if (ds->drv->port_bridge_join)
-		ret = ds->drv->port_bridge_join(ds, p->dp->port, br);
+		ret = ds->drv->port_bridge_join(ds, p->dp, br);
 
 	if (ret && ret != -EOPNOTSUPP) {
 		p->bridge_dev = NULL;
@@ -460,7 +460,7 @@ static void dsa_slave_bridge_port_leave(struct net_device *dev)
 	p->bridge_dev = NULL;
 
 	if (ds->drv->port_bridge_leave)
-		ds->drv->port_bridge_leave(ds, p->dp->port, br);
+		ds->drv->port_bridge_leave(ds, p->dp, br);
 
 	/* Port left the bridge, put in BR_STATE_DISABLED by the bridge layer,
 	 * so allow it to be in BR_STATE_FORWARDING to be kept functional

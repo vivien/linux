@@ -491,15 +491,15 @@ static int bcm_sf2_sw_fast_age_port(struct dsa_switch  *ds, int port)
 	return 0;
 }
 
-static int bcm_sf2_sw_br_join(struct dsa_switch *ds, int port,
+static int bcm_sf2_sw_br_join(struct dsa_switch *ds, struct dsa_port *dp,
 			      struct net_device *bridge)
 {
 	struct bcm_sf2_priv *priv = ds_to_priv(ds);
 	unsigned int i;
 	u32 reg, p_ctl;
 
-	priv->port_sts[port].bridge_dev = bridge;
-	p_ctl = core_readl(priv, CORE_PORT_VLAN_CTL_PORT(port));
+	priv->port_sts[dp->port].bridge_dev = bridge;
+	p_ctl = core_readl(priv, CORE_PORT_VLAN_CTL_PORT(dp->port));
 
 	for (i = 0; i < priv->hw_params.num_ports; i++) {
 		if (priv->port_sts[i].bridge_dev != bridge)
@@ -509,7 +509,7 @@ static int bcm_sf2_sw_br_join(struct dsa_switch *ds, int port,
 		 * membership and update the remote port bitmask
 		 */
 		reg = core_readl(priv, CORE_PORT_VLAN_CTL_PORT(i));
-		reg |= 1 << port;
+		reg |= 1 << dp->port;
 		core_writel(priv, reg, CORE_PORT_VLAN_CTL_PORT(i));
 		priv->port_sts[i].vlan_ctl_mask = reg;
 
@@ -519,20 +519,20 @@ static int bcm_sf2_sw_br_join(struct dsa_switch *ds, int port,
 	/* Configure the local port VLAN control membership to include
 	 * remote ports and update the local port bitmask
 	 */
-	core_writel(priv, p_ctl, CORE_PORT_VLAN_CTL_PORT(port));
-	priv->port_sts[port].vlan_ctl_mask = p_ctl;
+	core_writel(priv, p_ctl, CORE_PORT_VLAN_CTL_PORT(dp->port));
+	priv->port_sts[dp->port].vlan_ctl_mask = p_ctl;
 
 	return 0;
 }
 
-static void bcm_sf2_sw_br_leave(struct dsa_switch *ds, int port,
+static void bcm_sf2_sw_br_leave(struct dsa_switch *ds, struct dsa_port *dp,
 				struct net_device *bridge)
 {
 	struct bcm_sf2_priv *priv = ds_to_priv(ds);
 	unsigned int i;
 	u32 reg, p_ctl;
 
-	p_ctl = core_readl(priv, CORE_PORT_VLAN_CTL_PORT(port));
+	p_ctl = core_readl(priv, CORE_PORT_VLAN_CTL_PORT(dp->port));
 
 	for (i = 0; i < priv->hw_params.num_ports; i++) {
 		/* Don't touch the remaining ports */
@@ -540,18 +540,18 @@ static void bcm_sf2_sw_br_leave(struct dsa_switch *ds, int port,
 			continue;
 
 		reg = core_readl(priv, CORE_PORT_VLAN_CTL_PORT(i));
-		reg &= ~(1 << port);
+		reg &= ~(1 << dp->port);
 		core_writel(priv, reg, CORE_PORT_VLAN_CTL_PORT(i));
-		priv->port_sts[port].vlan_ctl_mask = reg;
+		priv->port_sts[dp->port].vlan_ctl_mask = reg;
 
 		/* Prevent self removal to preserve isolation */
-		if (port != i)
+		if (dp->port != i)
 			p_ctl &= ~(1 << i);
 	}
 
-	core_writel(priv, p_ctl, CORE_PORT_VLAN_CTL_PORT(port));
-	priv->port_sts[port].vlan_ctl_mask = p_ctl;
-	priv->port_sts[port].bridge_dev = NULL;
+	core_writel(priv, p_ctl, CORE_PORT_VLAN_CTL_PORT(dp->port));
+	priv->port_sts[dp->port].vlan_ctl_mask = p_ctl;
+	priv->port_sts[dp->port].bridge_dev = NULL;
 }
 
 static void bcm_sf2_sw_br_set_stp_state(struct dsa_switch *ds, int port,
