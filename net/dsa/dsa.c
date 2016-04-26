@@ -225,6 +225,8 @@ static int dsa_switch_setup_one(struct dsa_switch *ds, struct device *parent)
 	int index = ds->index;
 	int i, ret;
 
+	INIT_LIST_HEAD(&ds->dp);
+
 	/*
 	 * Validate supplied switch configuration.
 	 */
@@ -237,6 +239,8 @@ static int dsa_switch_setup_one(struct dsa_switch *ds, struct device *parent)
 
 		dp[i]->ds = ds;
 		dp[i]->port = i;
+
+		list_add_tail(&dp[i]->list, &ds->dp);
 
 		name = pd->port_names[i];
 		if (name == NULL)

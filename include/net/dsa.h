@@ -32,6 +32,11 @@ enum dsa_tag_protocol {
 #define DSA_MAX_SWITCHES	4
 #define DSA_MAX_PORTS		12
 
+#define dsa_switch_for_each_port(_ds, _dp, _num_ports)			\
+	for (_dp = list_first_entry(&_ds->dp, typeof(*_dp), list);	\
+	     &_dp->list != (&_ds->dp) && _dp->port < _num_ports;	\
+	     _dp = list_next_entry(_dp, list))
+
 struct dsa_chip_data {
 	/*
 	 * How to access the switch configuration registers.
@@ -123,6 +128,8 @@ struct dsa_switch_tree {
 };
 
 struct dsa_port {
+	struct list_head	list;
+
 	struct dsa_switch	*ds;
 	int			port;
 
@@ -173,6 +180,8 @@ struct dsa_switch {
 	u32			phys_mii_mask;
 	struct mii_bus		*slave_mii_bus;
 	struct net_device	*ports[DSA_MAX_PORTS];
+
+	struct list_head	dp;
 };
 
 static inline bool dsa_is_cpu_port(struct dsa_switch *ds, int p)
