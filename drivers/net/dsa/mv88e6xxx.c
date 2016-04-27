@@ -2272,8 +2272,29 @@ static int _mv88e6xxx_pvt_cmd(struct dsa_switch *ds, int src_dev, int src_port,
 	return _mv88e6xxx_pvt_wait(ds);
 }
 
+static int _mv88e6xxx_pvt_write(struct dsa_switch *ds, int src_dev,
+				int src_port, u16 data)
+{
+	int err;
+
+	err = _mv88e6xxx_pvt_wait(ds);
+	if (err)
+		return err;
+
+	err = _mv88e6xxx_reg_write(ds, REG_GLOBAL2, GLOBAL2_PVT_DATA, data);
+	if (err)
+		return err;
+
+        return _mv88e6xxx_pvt_cmd(ds, src_dev, src_port,
+				  GLOBAL2_PVT_ADDR_OP_WRITE_PVLAN);
+}
+
 static int _mv88e6xxx_pvt_init(struct dsa_switch *ds)
 {
+	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+	struct dsa_port *intp;
+	int src_dev, src_port;
+	u16 pv = 0;
 	int err;
 
 	/* Clear 5 Bit Port for usage with Marvell Link Street devices:
@@ -2284,8 +2305,60 @@ static int _mv88e6xxx_pvt_init(struct dsa_switch *ds)
 	if (err)
 		return err;
 
-	/* Allow any cross-chip frames to egress any internal ports */
-	return _mv88e6xxx_pvt_cmd(ds, 0, 0, GLOBAL2_PVT_ADDR_OP_INIT_ONES);
+	/* Forbid cross-chip frames to egress internal ports */
+	dsa_switch_for_each_port(ds, intp, ps->info->num_ports)
+		if (dsa_is_cpu_port(ds, intp->port) ||
+		    dsa_is_dsa_port(ds, intp->port))
+			pv |= BIT(intp->port);
+
+	for (src_dev = 0; src_dev < 32; ++src_dev) {
+		for (src_port = 0; src_port < 16; ++src_port) {
+			err = _mv88e6xxx_pvt_write(ds, src_dev, src_port, pv);
+			if (err)
+				return err;
+		}
+	}
+
+	return 0;
+}
+
+static int _mv88e6xxx_port_map_pvt(struct dsa_switch *ds, struct dsa_port *dp)
+{
+	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+	struct dsa_port *intp;
+	u16 pvlan = 0;
+
+	/* Cross-chip frames can egress CPU and DSA ports, and bridge members */
+	dsa_switch_for_each_port(ds, intp, ps->info->num_ports)
+		if (dsa_is_cpu_port(ds, intp->port) ||
+		    dsa_is_dsa_port(ds, intp->port) ||
+		    (intp->br && intp->br == dp->br))
+			pvlan |= BIT(intp->port);
+
+	return _mv88e6xxx_pvt_write(ds, dp->ds->index, dp->port, pvlan);
+}
+
+static int _mv88e6xxx_remap_pvt(struct dsa_switch *ds,
+				struct net_device *bridge)
+{
+	struct dsa_switch *dsa_sw;
+	struct dsa_port *dsa_p;
+	int err;
+
+	dsa_tree_for_each_switch(ds->dst, dsa_sw) {
+		if (dsa_sw == ds)
+			continue;
+
+		dsa_switch_for_each_port(dsa_sw, dsa_p, DSA_MAX_PORTS) {
+			if (dsa_p->br == bridge) {
+				err = _mv88e6xxx_port_map_pvt(ds, dsa_p);
+				if (err)
+					return err;
+			}
+		}
+	}
+
+	return 0;
 }
 
 int mv88e6xxx_port_bridge_change(struct dsa_switch *ds, struct dsa_port *dp,
@@ -2297,7 +2370,19 @@ int mv88e6xxx_port_bridge_change(struct dsa_switch *ds, struct dsa_port *dp,
 	mutex_lock(&ps->smi_mutex);
 
 	if (dsa_port_is_external(dp, ds)) {
-		err = -EOPNOTSUPP;
+		/* Forbidding hardware bridging of cross-chip frames requires a
+		 * Cross-chip Port VLAN Table (PVT), unless VLAN filtering is
+		 * enabled, in which case a global VTU-based logic works.
+		 */
+		if (mv88e6xxx_has(ps, MV88E6XXX_FLAG_PVT)) {
+			err = _mv88e6xxx_port_map_pvt(ds, dp);
+		} else if (IS_ENABLED(CONFIG_BRIDGE_VLAN_FILTERING)) {
+			err = 0;
+		} else {
+			pr_warn("%s: cannot prevent cross-chip frames without CONFIG_BRIDGE_VLAN_FILTERING\n",
+				ps->info->name);
+			err = -EOPNOTSUPP;
+		}
 	} else {
 		/* Remap VLANTable of concerned in-chip ports */
 		if (!dp->br) {
@@ -2309,6 +2394,13 @@ int mv88e6xxx_port_bridge_change(struct dsa_switch *ds, struct dsa_port *dp,
 		err = _mv88e6xxx_remap_vlantable(ds, bridge);
 		if (err)
 			goto unlock;
+
+		/* Remap PVT entries of concerned cross-chip ports */
+		if (mv88e6xxx_has(ps, MV88E6XXX_FLAG_PVT)) {
+			err = _mv88e6xxx_remap_pvt(ds, bridge);
+			if (err)
+				goto unlock;
+		}
 	}
 
 unlock:
