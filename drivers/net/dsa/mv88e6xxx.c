@@ -1150,6 +1150,24 @@ static int _mv88e6xxx_port_map_vlantable(struct dsa_switch *ds,
 	return _mv88e6xxx_reg_write(ds, REG_PORT(port), PORT_BASE_VLAN, reg);
 }
 
+static int _mv88e6xxx_remap_vlantable(struct dsa_switch *ds,
+				      struct net_device *bridge)
+{
+	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+	struct dsa_port *intp;
+	int err;
+
+	dsa_switch_for_each_port(ds, intp, ps->info->num_ports) {
+		if (intp->br == bridge) {
+			err = _mv88e6xxx_port_map_vlantable(ds, intp);
+			if (err)
+				return err;
+		}
+	}
+
+	return 0;
+}
+
 void mv88e6xxx_port_stp_state_set(struct dsa_switch *ds, int port, u8 state)
 {
 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
@@ -2229,51 +2247,46 @@ unlock:
 	return err;
 }
 
-int mv88e6xxx_port_bridge_join(struct dsa_switch *ds, struct dsa_port *dp,
-			       struct net_device *bridge)
+int mv88e6xxx_port_bridge_change(struct dsa_switch *ds, struct dsa_port *dp,
+				 struct net_device *bridge)
 {
 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
-	struct dsa_port *intp;
 	int err;
-
-	if (dsa_port_is_external(dp, ds))
-		return -EOPNOTSUPP;
 
 	mutex_lock(&ps->smi_mutex);
 
-	/* Remap each port's VLANTable */
-	dsa_switch_for_each_port(ds, intp, ps->info->num_ports) {
-		if (intp->br == bridge) {
-			err = _mv88e6xxx_port_map_vlantable(ds, intp);
+	if (dsa_port_is_external(dp, ds)) {
+		err = -EOPNOTSUPP;
+	} else {
+		/* Remap VLANTable of concerned in-chip ports */
+		if (!dp->br) {
+			err = _mv88e6xxx_port_map_vlantable(ds, dp);
 			if (err)
-				break;
+				goto unlock;
 		}
+
+		err = _mv88e6xxx_remap_vlantable(ds, bridge);
+		if (err)
+			goto unlock;
 	}
 
+unlock:
 	mutex_unlock(&ps->smi_mutex);
 
 	return err;
 }
 
+int mv88e6xxx_port_bridge_join(struct dsa_switch *ds, struct dsa_port *dp,
+			       struct net_device *bridge)
+{
+	return mv88e6xxx_port_bridge_change(ds, dp, bridge);
+}
+
 void mv88e6xxx_port_bridge_leave(struct dsa_switch *ds, struct dsa_port *dp,
 				 struct net_device *bridge)
 {
-	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
-	struct dsa_port *intp;
-
-	if (dsa_port_is_external(dp, ds))
-		return;
-
-	mutex_lock(&ps->smi_mutex);
-
-	/* Remap each port's VLANTable */
-	dsa_switch_for_each_port(ds, intp, ps->info->num_ports)
-		if (intp == dp || intp->br == bridge)
-			if (_mv88e6xxx_port_map_vlantable(ds, intp))
-				netdev_warn(ds->ports[intp->port],
-					    "failed to remap\n");
-
-	mutex_unlock(&ps->smi_mutex);
+	if (mv88e6xxx_port_bridge_change(ds, dp, bridge))
+		netdev_err(ds->ports[dp->port], "failed to unbridge\n");
 }
 
 static void mv88e6xxx_bridge_work(struct work_struct *work)
