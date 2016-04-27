@@ -338,6 +338,10 @@
 
 #define MV88E6XXX_N_FID		4096
 
+enum mv88e6xxx_flag {
+	MV88E6XXX_NUM_FLAGS,
+};
+
 enum mv88e6xxx_family {
 	MV88E6XXX_FAMILY_NONE,
 	MV88E6XXX_FAMILY_6065,	/* 6031 6035 6061 6065 */
@@ -356,6 +360,7 @@ struct mv88e6xxx_info {
 	const char *name;
 	unsigned int num_databases;
 	unsigned int num_ports;
+	unsigned long flags;
 };
 
 struct mv88e6xxx_atu_entry {
@@ -444,6 +449,12 @@ struct mv88e6xxx_hw_stat {
 	int reg;
 	enum stat_type type;
 };
+
+static inline bool mv88e6xxx_has(struct mv88e6xxx_priv_state *ps,
+				 enum mv88e6xxx_flag flag)
+{
+	return !!(ps->info->flags & BIT(flag));
+}
 
 int mv88e6xxx_switch_reset(struct dsa_switch *ds, bool ppu_active);
 const char *mv88e6xxx_drv_probe(struct device *dsa_dev, struct device *host_dev,
