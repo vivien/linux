@@ -378,7 +378,6 @@ struct mv88e6xxx_vtu_stu_entry {
 };
 
 struct mv88e6xxx_priv_port {
-	struct net_device *bridge_dev;
 	u8 state;
 };
 
