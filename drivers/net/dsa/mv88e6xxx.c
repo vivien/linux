@@ -2247,6 +2247,47 @@ unlock:
 	return err;
 }
 
+static int _mv88e6xxx_pvt_wait(struct dsa_switch *ds)
+{
+	return _mv88e6xxx_wait(ds, REG_GLOBAL2, GLOBAL2_PVT_ADDR,
+			       GLOBAL2_PVT_ADDR_BUSY);
+}
+
+static int _mv88e6xxx_pvt_cmd(struct dsa_switch *ds, int src_dev, int src_port,
+			      u16 op)
+{
+	u16 reg = op;
+	int err;
+
+	/* 9-bit Cross-chip PVT pointer: with GLOBAL2_MISC_5_BIT_PORT cleared,
+	 * source device is 5-bit, source port is 4-bit.
+	 */
+	reg |= (src_dev & 0x1f) << 4;
+	reg |= (src_port & 0xf);
+
+	err = _mv88e6xxx_reg_write(ds, REG_GLOBAL2, GLOBAL2_PVT_ADDR, reg);
+	if (err)
+		return err;
+
+	return _mv88e6xxx_pvt_wait(ds);
+}
+
+static int _mv88e6xxx_pvt_init(struct dsa_switch *ds)
+{
+	int err;
+
+	/* Clear 5 Bit Port for usage with Marvell Link Street devices:
+	 * use 4 bits for the Src_Port/Src_Trunk and 5 bits for the Src_Dev.
+	 */
+	err = _mv88e6xxx_reg_write(ds, REG_GLOBAL2, GLOBAL2_MISC,
+				   0 & ~GLOBAL2_MISC_5_BIT_PORT);
+	if (err)
+		return err;
+
+	/* Allow any cross-chip frames to egress any internal ports */
+	return _mv88e6xxx_pvt_cmd(ds, 0, 0, GLOBAL2_PVT_ADDR_OP_INIT_ONES);
+}
+
 int mv88e6xxx_port_bridge_change(struct dsa_switch *ds, struct dsa_port *dp,
 				 struct net_device *bridge)
 {
@@ -2770,13 +2811,12 @@ int mv88e6xxx_setup_global(struct dsa_switch *ds)
 		if (err)
 			goto unlock;
 
-		/* Initialise cross-chip port VLAN table to reset
-		 * defaults.
-		 */
-		err = _mv88e6xxx_reg_write(ds, REG_GLOBAL2,
-					   GLOBAL2_PVT_ADDR, 0x9000);
-		if (err)
-			goto unlock;
+		/* Initialize Cross-chip Port VLAN Table (PVT) */
+		if (mv88e6xxx_has(ps, MV88E6XXX_FLAG_PVT)) {
+			err = _mv88e6xxx_pvt_init(ds);
+			if (err)
+				goto unlock;
+		}
 
 		/* Clear the priority override table. */
 		for (i = 0; i < 16; i++) {
