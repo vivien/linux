@@ -3083,20 +3083,13 @@ mv88e6xxx_lookup_info(unsigned int prod_num, const struct mv88e6xxx_info *table,
 	return NULL;
 }
 
-const char *mv88e6xxx_drv_probe(struct device *dsa_dev, struct device *host_dev,
-				int sw_addr, void **priv,
-				const struct mv88e6xxx_info *table,
-				unsigned int num)
+static struct mv88e6xxx_priv_state *
+mv88e6xxx_mii_probe(struct device *dev, struct mii_bus *bus, int sw_addr,
+		    const struct mv88e6xxx_info *table, unsigned int num)
 {
 	const struct mv88e6xxx_info *info;
 	struct mv88e6xxx_priv_state *ps;
-	struct mii_bus *bus;
-	const char *name;
 	int id, prod_num, rev;
-
-	bus = dsa_host_dev_to_mii_bus(host_dev);
-	if (!bus)
-		return NULL;
 
 	id = __mv88e6xxx_reg_read(bus, sw_addr, REG_PORT(0), PORT_SWITCH_ID);
 	if (id < 0)
@@ -3109,9 +3102,7 @@ const char *mv88e6xxx_drv_probe(struct device *dsa_dev, struct device *host_dev,
 	if (!info)
 		return NULL;
 
-	name = info->name;
-
-	ps = devm_kzalloc(dsa_dev, sizeof(*ps), GFP_KERNEL);
+	ps = devm_kzalloc(dev, sizeof(*ps), GFP_KERNEL);
 	if (!ps)
 		return NULL;
 
@@ -3119,12 +3110,31 @@ const char *mv88e6xxx_drv_probe(struct device *dsa_dev, struct device *host_dev,
 	ps->sw_addr = sw_addr;
 	ps->info = info;
 
+	dev_info(dev, "switch 0x%x probed: %s, revision %u\n",
+		 prod_num, ps->info->name, rev);
+
+	return ps;
+}
+
+const char *mv88e6xxx_drv_probe(struct device *dsa_dev, struct device *host_dev,
+				int sw_addr, void **priv,
+				const struct mv88e6xxx_info *table,
+				unsigned int num)
+{
+	struct mv88e6xxx_priv_state *ps;
+	struct mii_bus *bus;
+
+	bus = dsa_host_dev_to_mii_bus(host_dev);
+	if (!bus)
+		return NULL;
+
+	ps = mv88e6xxx_mii_probe(dsa_dev, bus, sw_addr, table, num);
+	if (!ps)
+		return NULL;
+
 	*priv = ps;
 
-	dev_info(&ps->bus->dev, "switch 0x%x probed: %s, revision %u\n",
-		 prod_num, name, rev);
-
-	return name;
+	return ps->info->name;
 }
 
 static int __init mv88e6xxx_init(void)
