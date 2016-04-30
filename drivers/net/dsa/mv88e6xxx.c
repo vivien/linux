@@ -1361,6 +1361,9 @@ void mv88e6xxx_port_stp_state_set(struct dsa_switch *ds, int port, u8 state)
 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
 	int stp_state;
 
+	if (!mv88e6xxx_has(ps, MV88E6XXX_FLAG_PORTSTATE))
+		return;
+
 	switch (state) {
 	case BR_STATE_DISABLED:
 		stp_state = PORT_CONTROL_STATE_DISABLED;
@@ -2422,6 +2425,9 @@ int mv88e6xxx_port_bridge_join(struct dsa_switch *ds, int port,
 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
 	int i, err = 0;
 
+	if (!mv88e6xxx_has(ps, MV88E6XXX_FLAG_VLANTABLE))
+		return -EOPNOTSUPP;
+
 	mutex_lock(&ps->smi_mutex);
 
 	/* Assign the bridge and remap each port's VLANTable */
@@ -2445,6 +2451,9 @@ void mv88e6xxx_port_bridge_leave(struct dsa_switch *ds, int port)
 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
 	struct net_device *bridge = ps->ports[port].bridge_dev;
 	int i;
+
+	if (!mv88e6xxx_has(ps, MV88E6XXX_FLAG_VLANTABLE))
+		return;
 
 	mutex_lock(&ps->smi_mutex);
 
