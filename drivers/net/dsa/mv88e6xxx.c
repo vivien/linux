@@ -2930,6 +2930,14 @@ static int _mv88e6xxx_setup_global(struct mv88e6xxx_priv_state *ps)
 	if (err)
 		return err;
 
+	/* Set the VLAN ethertype to 0x8100. */
+	if (mv88e6xxx_has(ps, MV88E6XXX_FLAG_CORE_TAG_TYPE)) {
+		err = _mv88e6xxx_reg_write(ps, REG_GLOBAL, GLOBAL_CORE_TAG_TYPE,
+					   0x8100);
+		if (err)
+			return err;
+	}
+
 	/* Set the default address aging time to 5 minutes, and
 	 * enable address learn messages to be sent to all message
 	 * ports.
