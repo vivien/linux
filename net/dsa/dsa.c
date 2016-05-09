@@ -294,6 +294,7 @@ static int dsa_switch_setup_one(struct dsa_switch *ds, struct device *parent)
 			}
 			dst->cpu_switch = index;
 			dst->cpu_port = i;
+			ds->cpu_port_mask |= 1 << i;
 		} else if (!strcmp(name, "dsa")) {
 			ds->dsa_port_mask |= 1 << i;
 		} else {
