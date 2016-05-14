@@ -552,7 +552,7 @@ static struct device_node *dsa_get_ports(struct dsa_switch *ds,
 	return ports;
 }
 
-static int _dsa_register_switch(struct dsa_switch *ds, struct device_node *np)
+static int __dsa_register_switch(struct dsa_switch *ds, struct device_node *np)
 {
 	struct device_node *ports = dsa_get_ports(ds, np);
 	struct dsa_switch_tree *dst;
@@ -619,6 +619,16 @@ out:
 	dsa_put_dst(dst);
 
 	return err;
+}
+
+static int _dsa_register_switch(struct dsa_switch *ds, struct device_node *np)
+{
+	struct device_node *ports = dsa_get_ports(ds, np);
+
+	if (IS_ERR(ports))
+		return PTR_ERR(ports);
+
+	return __dsa_register_switch(ds, np);
 }
 
 int dsa_register_switch(struct dsa_switch *ds, struct device_node *np)
