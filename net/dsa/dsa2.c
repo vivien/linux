@@ -384,6 +384,7 @@ static int dsa_dst_apply(struct dsa_switch_tree *dst)
 	 */
 	wmb();
 	dst->master_netdev->dsa_ptr = (void *)dst;
+	dst->applied = true;
 
 	return 0;
 }
@@ -392,6 +393,9 @@ static void dsa_dst_unapply(struct dsa_switch_tree *dst)
 {
 	struct dsa_switch *ds;
 	u32 index;
+
+	if (!dst->applied)
+		return;
 
 	dst->master_netdev->dsa_ptr = NULL;
 
@@ -410,6 +414,7 @@ static void dsa_dst_unapply(struct dsa_switch_tree *dst)
 	}
 
 	pr_info("DSA: tree %d unapplied\n", dst->tree);
+	dst->applied = false;
 
 	return;
 }
@@ -611,8 +616,6 @@ static int __dsa_register_switch(struct dsa_switch *ds, struct device_node *np)
 		return err;
 	}
 
-	dst->applied = true;
-
 	err = 0;
 
 out:
@@ -646,10 +649,7 @@ void _dsa_unregister_switch(struct dsa_switch *ds)
 {
 	struct dsa_switch_tree *dst = ds->dst;
 
-	if (dst->applied) {
-		dsa_dst_unapply(dst);
-		dst->applied = false;
-	}
+	dsa_dst_unapply(dst);
 
 	dsa_dst_del_ds(dst, ds, ds->index);
 }
