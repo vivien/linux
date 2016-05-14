@@ -419,21 +419,11 @@ static void dsa_dst_unapply(struct dsa_switch_tree *dst)
 	return;
 }
 
-static int dsa_cpu_parse(struct device_node *port, u32 index,
-			 struct dsa_switch_tree *dst,
-			 struct dsa_switch *ds)
+static int _dsa_cpu_parse(struct dsa_switch_tree *dst,
+			   struct dsa_switch *ds,
+			   struct net_device *ethernet_dev,
+			   u32 index)
 {
-	struct net_device *ethernet_dev;
-	struct device_node *ethernet;
-
-	ethernet = of_parse_phandle(port, "ethernet", 0);
-	if (!ethernet)
-		return -EINVAL;
-
-	ethernet_dev = of_find_net_device_by_node(ethernet);
-	if (!ethernet_dev)
-		return -EPROBE_DEFER;
-
 	if (!ds->master_netdev)
 		ds->master_netdev = ethernet_dev;
 
@@ -454,6 +444,24 @@ static int dsa_cpu_parse(struct device_node *port, u32 index,
 	dst->rcv = dst->tag_ops->rcv;
 
 	return 0;
+}
+
+static int dsa_cpu_parse(struct device_node *port, u32 index,
+			 struct dsa_switch_tree *dst,
+			 struct dsa_switch *ds)
+{
+	struct net_device *ethernet_dev;
+	struct device_node *ethernet;
+
+	ethernet = of_parse_phandle(port, "ethernet", 0);
+	if (!ethernet)
+		return -EINVAL;
+
+	ethernet_dev = of_find_net_device_by_node(ethernet);
+	if (!ethernet_dev)
+		return -EPROBE_DEFER;
+
+	return _dsa_cpu_parse(dst, ds, ethernet_dev, index);
 }
 
 static int dsa_ds_parse(struct dsa_switch_tree *dst, struct dsa_switch *ds)
@@ -557,6 +565,108 @@ static struct device_node *dsa_get_ports(struct dsa_switch *ds,
 	return ports;
 }
 
+static int _dsa_register_switch_legacy(struct dsa_switch *ds, struct device_node *np)
+{
+	const char *compat = of_get_property(np, "compatible", NULL);
+	struct device_node *dn, *ethernet;
+	struct net_device *ethernet_dev;
+	struct dsa_switch_tree *dst;
+	u32 tree = 0, index;
+	int err;
+
+	/* Tree is implied by how many devices are present in the DT with the
+	 * supported compatible strings from net/dsa/dsa.c
+	 */
+	for_each_compatible_node(dn, NULL, compat) {
+		if (dn != np)
+			tree++;
+	}
+
+	/* index is present in the "reg" property, second cell */
+	err = of_property_read_u32_index(np->child, "reg", 1, &index);
+	if (err)
+		return err;
+
+	if (index >= DSA_MAX_SWITCHES)
+		return -EINVAL;
+
+	err = dsa_parse_ports_dn(np->child, ds);
+	if (err)
+		return err;
+
+	dst = dsa_get_dst(tree);
+	if (!dst) {
+		dst = dsa_add_dst(tree);
+		if (!dst)
+			return -ENOMEM;
+	}
+
+	if (dst->ds[index]) {
+		err = -EBUSY;
+		goto out;
+	}
+
+	ds->dst = dst;
+	ds->index = index;
+	dsa_dst_add_ds(dst, ds, index);
+
+	err = dsa_dst_complete(dst);
+	if (err < 0)
+		goto out;
+
+	if (err == 1) {
+		/* Not all switches registered yet */
+		err = 0;
+		goto out;
+	}
+
+	if (dst->applied) {
+		pr_info("DSA: Disjoint trees?\n");
+		err = -EINVAL;
+		goto out_del_dst;
+	}
+
+	ethernet = of_parse_phandle(np, "dsa,ethernet", 0);
+	if (!ethernet) {
+		err = -EINVAL;
+		goto out_del_dst;
+	}
+
+	ethernet_dev = of_find_net_device_by_node(ethernet);
+	if (!ethernet_dev) {
+		err = -EPROBE_DEFER;
+		goto out_del_dst;
+	}
+
+	err = _dsa_cpu_parse(dst, ds, ethernet_dev, index);
+	if (err)
+		goto out_del_dst;
+
+	if (!dst->master_netdev) {
+		pr_warn("Tree has no master device\n");
+		goto out_del_dst;
+	}
+
+	pr_info("DSA: tree %d parsed\n", dst->tree);
+
+	err = dsa_dst_apply(dst);
+	if (err) {
+		dsa_dst_unapply(dst);
+		goto out_del_dst;
+	}
+
+	dsa_put_dst(dst);
+
+	return 0;
+
+out_del_dst:
+	dsa_dst_del_ds(dst, ds, ds->index);
+out:
+	dsa_put_dst(dst);
+
+	return err;
+}
+
 static int __dsa_register_switch(struct dsa_switch *ds, struct device_node *np)
 {
 	struct device_node *ports = dsa_get_ports(ds, np);
@@ -620,7 +730,7 @@ static int __dsa_register_switch(struct dsa_switch *ds, struct device_node *np)
 	return 0;
 
 out_del_dst:
-	dsa_dst_del_dst(dst, ds, ds->index);
+	dsa_dst_del_ds(dst, ds, ds->index);
 out:
 	dsa_put_dst(dst);
 
@@ -631,8 +741,8 @@ static int _dsa_register_switch(struct dsa_switch *ds, struct device_node *np)
 {
 	struct device_node *ports = dsa_get_ports(ds, np);
 
-	if (IS_ERR(ports))
-		return PTR_ERR(ports);
+	if (IS_ERR(ports) && PTR_ERR(ports) == -EINVAL)
+		return _dsa_register_switch_legacy(ds, np);
 
 	return __dsa_register_switch(ds, np);
 }
