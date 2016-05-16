@@ -593,12 +593,12 @@ static int __dsa_register_switch(struct dsa_switch *ds, struct device_node *np)
 
 	err = dsa_dst_complete(dst);
 	if (err < 0)
-		goto out;
+		goto out_del_dst;
 
 	if (err == 1) {
 		/* Not all switches registered yet */
 		err = 0;
-		goto out;
+		goto out_del_dst;
 	}
 
 	if (dst->applied) {
@@ -608,16 +608,19 @@ static int __dsa_register_switch(struct dsa_switch *ds, struct device_node *np)
 
 	err = dsa_dst_parse(dst);
 	if (err)
-		goto out;
+		goto out_del_dst;
 
 	err = dsa_dst_apply(dst);
 	if (err) {
 		dsa_dst_unapply(dst);
-		return err;
+		goto out_del_dst;
 	}
 
-	err = 0;
+	dsa_put_dst(dst);
+	return 0;
 
+out_del_dst:
+	dsa_dst_del_dst(dst, ds, ds->index);
 out:
 	dsa_put_dst(dst);
 
