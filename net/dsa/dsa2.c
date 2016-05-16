@@ -308,6 +308,18 @@ static int dsa_ds_apply(struct dsa_switch_tree *dst, struct dsa_switch *ds)
 	if (err < 0)
 		return err;
 
+	if (!ds->slave_mii_bus && ds->drv->phy_read) {
+		ds->slave_mii_bus = devm_mdiobus_alloc(ds->dev);
+		if (!ds->slave_mii_bus)
+			return err;
+
+		dsa_slave_mii_bus_init(ds);
+
+		err = mdiobus_register(ds->slave_mii_bus);
+		if (err < 0)
+			return err;
+	}
+
 	for (index = 0; index < DSA_MAX_PORTS; index++) {
 		port = ds->ports[index].dn;
 		if (!port)
@@ -316,23 +328,27 @@ static int dsa_ds_apply(struct dsa_switch_tree *dst, struct dsa_switch *ds)
 		if (dsa_port_is_dsa(port)) {
 			err = dsa_dsa_port_apply(port, index, ds);
 			if (err)
-				return err;
+				goto out_err;
 			continue;
 		}
 
 		if (dsa_port_is_cpu(port)) {
 			err = dsa_cpu_port_apply(port, index, ds);
 			if (err)
-				return err;
+				goto out_err;
 			continue;
 		}
 
 		err = dsa_user_port_apply(port, index, ds);
 		if (err)
-			return err;
+			goto out_err;
 	}
 
 	return 0;
+
+out_err:
+	mdiobus_unregister(ds->slave_mii_bus);
+	return err;
 }
 
 static void dsa_ds_unapply(struct dsa_switch_tree *dst, struct dsa_switch *ds)
