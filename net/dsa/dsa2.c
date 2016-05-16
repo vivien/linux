@@ -285,6 +285,7 @@ static void dsa_user_port_unapply(struct device_node *port, u32 index,
 	if (ds->ports[index].netdev) {
 		_dsa_slave_destroy(ds->ports[index].netdev);
 		ds->ports[index].netdev = NULL;
+		ds->enabled_port_mask &= ~(1 << index);
 	}
 
 	return;
@@ -295,6 +296,13 @@ static int dsa_ds_apply(struct dsa_switch_tree *dst, struct dsa_switch *ds)
 	struct device_node *port;
 	u32 index;
 	int err;
+
+	/* Initialize ds->phys_mii_mask before registering the slave MDIO bus
+	 * driver and before drv->setup() has run, since the switch drivers and
+	 * the slave MDIO bus driver rely on these values for probing PHY
+	 * devices or not
+	 */
+	ds->phys_mii_mask = ds->enabled_port_mask;
 
 	err = ds->drv->setup(ds);
 	if (err < 0)
@@ -307,6 +315,7 @@ static int dsa_ds_apply(struct dsa_switch_tree *dst, struct dsa_switch *ds)
 	err = ds->drv->set_addr(ds, dst->master_netdev->dev_addr);
 	if (err < 0)
 		return err;
+
 
 	if (!ds->slave_mii_bus && ds->drv->phy_read) {
 		ds->slave_mii_bus = devm_mdiobus_alloc(ds->dev);
@@ -341,7 +350,7 @@ static int dsa_ds_apply(struct dsa_switch_tree *dst, struct dsa_switch *ds)
 
 		err = dsa_user_port_apply(port, index, ds);
 		if (err)
-			goto out_err;
+			continue;
 	}
 
 	return 0;
@@ -448,7 +457,11 @@ static int _dsa_cpu_parse(struct dsa_switch_tree *dst,
 
 	if (dst->cpu_switch == -1) {
 		dst->cpu_switch = ds->index;
-		dst->cpu_port = index;
+		/* Only assign dst->cpu_port if not done already by
+		 * dsa_parse_ports_dn
+		 */
+		if (!dst->cpu_port)
+			dst->cpu_port = index;
 	}
 
 	dst->tag_ops = dsa_resolve_tag_protocol(ds->drv->tag_protocol);
@@ -544,6 +557,15 @@ static int dsa_parse_ports_dn(struct device_node *ports, struct dsa_switch *ds)
 			return -EINVAL;
 
 		ds->ports[reg].dn = port;
+
+		if (dsa_port_is_cpu(port))
+			ds->dst->cpu_port = reg;
+		else
+			/* Initialize enabled_port_mask now for drv->setup()
+			 * to have access to a correct value, just like what
+			 * net/dsa/dsa.c::dsa_switch_setup_one does.
+			 */
+			ds->enabled_port_mask |= 1 << reg;
 	}
 
 	return 0;
@@ -606,10 +628,6 @@ static int _dsa_register_switch_legacy(struct dsa_switch *ds, struct device_node
 	if (index >= DSA_MAX_SWITCHES)
 		return -EINVAL;
 
-	err = dsa_parse_ports_dn(np->child, ds);
-	if (err)
-		return err;
-
 	dst = dsa_get_dst(tree);
 	if (!dst) {
 		dst = dsa_add_dst(tree);
@@ -617,12 +635,17 @@ static int _dsa_register_switch_legacy(struct dsa_switch *ds, struct device_node
 			return -ENOMEM;
 	}
 
+	ds->dst = dst;
+
+	err = dsa_parse_ports_dn(np->child, ds);
+	if (err)
+		return err;
+
 	if (dst->ds[index]) {
 		err = -EBUSY;
 		goto out;
 	}
 
-	ds->dst = dst;
 	ds->index = index;
 	dsa_dst_add_ds(dst, ds, index);
 
@@ -654,7 +677,7 @@ static int _dsa_register_switch_legacy(struct dsa_switch *ds, struct device_node
 		goto out_del_dst;
 	}
 
-	err = _dsa_cpu_parse(dst, ds, ethernet_dev, index);
+	err = _dsa_cpu_parse(dst, ds, ethernet_dev, dst->cpu_port);
 	if (err)
 		goto out_del_dst;
 
@@ -697,10 +720,6 @@ static int __dsa_register_switch(struct dsa_switch *ds, struct device_node *np)
 	if (IS_ERR(ports))
 		return PTR_ERR(ports);
 
-	err = dsa_parse_ports_dn(ports, ds);
-	if (err)
-		return err;
-
 	dst = dsa_get_dst(tree);
 	if (!dst) {
 		dst = dsa_add_dst(tree);
@@ -708,12 +727,17 @@ static int __dsa_register_switch(struct dsa_switch *ds, struct device_node *np)
 			return -ENOMEM;
 	}
 
+	ds->dst = dst;
+
+	err = dsa_parse_ports_dn(ports, ds);
+	if (err)
+		return err;
+
 	if (dst->ds[index]) {
 		err = -EBUSY;
 		goto out;
 	}
 
-	ds->dst = dst;
 	ds->index = index;
 	dsa_dst_add_ds(dst, ds, index);
 
