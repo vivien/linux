@@ -1159,7 +1159,9 @@ int _dsa_slave_create(struct dsa_switch *ds, struct device *parent,
 		netdev_err(master, "error %d registering interface %s\n",
 			   ret, slave_dev->name);
 		ds->ports[port].netdev = NULL;
+		rtnl_unlock();
 		free_netdev(slave_dev);
+		rtnl_lock();
 		return ret;
 	}
 
@@ -1169,7 +1171,9 @@ int _dsa_slave_create(struct dsa_switch *ds, struct device *parent,
 	if (ret) {
 		netdev_err(master, "error %d setting up slave phy\n", ret);
 		unregister_netdevice(slave_dev);
+		rtnl_unlock();
 		free_netdev(slave_dev);
+		rtnl_lock();
 		return ret;
 	}
 
@@ -1196,7 +1200,6 @@ void _dsa_slave_destroy(struct net_device *slave_dev)
 	if (p->phy)
 		phy_disconnect(p->phy);
 	unregister_netdevice(slave_dev);
-	free_netdev(slave_dev);
 }
 
 void dsa_slave_destroy(struct net_device *slave_dev)
@@ -1204,6 +1207,8 @@ void dsa_slave_destroy(struct net_device *slave_dev)
 	rtnl_lock();
 	_dsa_slave_destroy(slave_dev);
 	rtnl_unlock();
+	/* sleeps, move outside the lock */
+	free_netdev(slave_dev);
 }
 
 static bool dsa_slave_dev_check(struct net_device *dev)
