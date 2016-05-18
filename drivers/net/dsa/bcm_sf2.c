@@ -22,6 +22,7 @@
 #include <linux/of_irq.h>
 #include <linux/of_address.h>
 #include <linux/of_net.h>
+#include <linux/of_mdio.h>
 #include <net/dsa.h>
 #include <linux/ethtool.h>
 #include <linux/if_bridge.h>
@@ -935,7 +936,9 @@ static void bcm_sf2_identify_ports(struct bcm_sf2_priv *priv,
 static int bcm_sf2_sw_setup(struct dsa_switch *ds)
 {
 	struct bcm_sf2_priv *priv = ds_to_priv(ds);
+	struct device_node *mdio_bus;
 	unsigned int port;
+	int err;
 
 	/* Enable all valid ports and disable those unused */
 	for (port = 0; port < priv->hw_params.num_ports; port++) {
@@ -965,7 +968,22 @@ static int bcm_sf2_sw_setup(struct dsa_switch *ds)
 	else
 		ds->phys_mii_mask = 0;
 
-	return 0;
+	ds->slave_mii_bus = devm_mdiobus_alloc(ds->dev);
+	if (!ds->slave_mii_bus)
+		return -ENOMEM;
+
+	dsa_slave_mii_bus_init(ds);
+
+	/* Find our integratd MDIO bus */
+	mdio_bus = of_find_compatible_node(NULL, NULL, "brcm,unimac-mdio");
+	ds->slave_mii_bus->dev.of_node = mdio_bus;
+
+	if (mdio_bus)
+		err = of_mdiobus_register(ds->slave_mii_bus, mdio_bus);
+	else
+		err = mdiobus_register(ds->slave_mii_bus);
+
+	return err;
 }
 
 static int bcm_sf2_sw_set_addr(struct dsa_switch *ds, u8 *addr)
