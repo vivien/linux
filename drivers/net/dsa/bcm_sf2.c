@@ -964,7 +964,7 @@ static int bcm_sf2_sw_setup(struct dsa_switch *ds)
 	 * bus backed by the "mdio-unimac" driver.
 	 */
 	if (of_machine_is_compatible("brcm,bcm7445d0"))
-		ds->phys_mii_mask |= ((1 << BRCM_PSEUDO_PHY_ADDR) | (1 << 0));
+		ds->phys_mii_mask |= ((1 << BRCM_PSEUDO_PHY_ADDR) | (1 << 0) | (1 << 1) | (1 << 2) | (1 << 3));
 	else
 		ds->phys_mii_mask = 0;
 
@@ -1042,6 +1042,9 @@ static int bcm_sf2_sw_phy_read(struct dsa_switch *ds, int addr, int regnum)
 	 */
 	switch (addr) {
 	case 0:
+	case 1:
+	case 2:
+	case 3:
 	case BRCM_PSEUDO_PHY_ADDR:
 		return bcm_sf2_sw_indir_rw(ds, 1, addr, regnum, 0);
 	default:
@@ -1057,6 +1060,9 @@ static int bcm_sf2_sw_phy_write(struct dsa_switch *ds, int addr, int regnum,
 	 */
 	switch (addr) {
 	case 0:
+	case 1:
+	case 2:
+	case 3:
 	case BRCM_PSEUDO_PHY_ADDR:
 		bcm_sf2_sw_indir_rw(ds, 0, addr, regnum, val);
 		break;
