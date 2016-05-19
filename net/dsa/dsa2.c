@@ -797,6 +797,7 @@ int dsa_register_switch(struct dsa_switch *ds, struct device_node *np)
 
 	return err;
 }
+EXPORT_SYMBOL(dsa_register_switch);
 
 void _dsa_unregister_switch(struct dsa_switch *ds)
 {
@@ -813,4 +814,5 @@ void dsa_unregister_switch(struct dsa_switch *ds)
 	_dsa_unregister_switch(ds);
 	rtnl_unlock();
 }
+EXPORT_SYMBOL(dsa_unregister_switch);
 
