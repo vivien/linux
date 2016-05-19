@@ -54,7 +54,7 @@ void dsa_slave_mii_bus_init(struct dsa_switch *ds)
 	ds->slave_mii_bus->parent = ds->dev;
 	ds->slave_mii_bus->phy_mask = ~ds->phys_mii_mask;
 }
-
+EXPORT_SYMBOL(dsa_slave_mii_bus_init);
 
 /* slave device handling ****************************************************/
 static int dsa_slave_get_iflink(const struct net_device *dev)
