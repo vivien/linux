@@ -388,11 +388,11 @@ int dsa_register_switch(struct dsa_switch *ds, struct device_node *np);
 int dsa_switch_suspend(struct dsa_switch *ds);
 int dsa_switch_resume(struct dsa_switch *ds);
 #else
-static inline dsa_switch_suspend(struct dsa_switch *ds)
+static inline int dsa_switch_suspend(struct dsa_switch *ds)
 {
 	return 0;
 }
-static inline dsa_switch_resume(struct dsa_switch *ds)
+static inline int dsa_switch_resume(struct dsa_switch *ds)
 {
 	return 0;
 }
