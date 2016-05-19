@@ -226,6 +226,53 @@
 #define   VTE_UNTAG			(0x1ff << 9)
 
 /*************************************************************************
+ * ARL I/O Registers
+ *************************************************************************/
+
+/* ARL Table Read/Write Register (8 bit) */
+#define B53_ARLTBL_RW_CTRL		0x00
+#define    ARLTBL_RW			BIT(0)
+#define    ARLTBL_START_DONE		BIT(7)
+
+/* MAC Address Index Register (48 bit) */
+#define B53_MAC_ADDR_IDX		0x02
+
+/* VLAN ID Index Register (16 bit) */
+#define B53_VLAN_ID_IDX			0x08
+
+/* ARL Table MAC/VID Entry N Registers (64 bit) */
+#define B53_ARLTBL_MAC_VID_ENTRY(n)	(0x10 * (n))
+#define   ARLTBL_MAC_MASK		0xffffffffffff
+#define   ARLTBL_VID_S			48
+#define   ARLTBL_VID_MASK		0xfff
+
+/* ARL Table Data Entry N Registers (32 bit) */
+#define B53_ARLTBL_DATA_ENTRY(n)	((0x10 * (n)) + 0x08)
+#define   ARLTBL_DATA_PORT_ID_MASK	0x1ff
+#define   ARLTBL_TC(tc)			((3 & tc) << 11)
+#define   ARLTBL_AGE			BIT(14)
+#define   ARLTBL_STATIC			BIT(15)
+#define   ARLTBL_VALID			BIT(16)
+
+/* ARL Search Control Register (8 bit) */
+#define B53_ARL_SRCH_CTL		0x50
+#define   ARL_SRCH_VLID			BIT(0)
+#define   ARL_SRCH_STDN			BIT(7)
+
+/* ARL Search Address Register (16 bit) */
+#define B53_ARL_SRCH_ADDR		0x51
+#define  ARL_ADDR_MASK			GENMASK(14, 0)
+
+/* ARL Search MAC/VID Result (64 bit) */
+#define B53_ARL_SRCH_RSTL_0_MACVID	0x60
+
+/* ARL Search Data Result (32 bit) */
+#define B53_ARL_SRCH_RSTL_0		0x68
+
+#define B53_ARL_SRCH_RSTL_MACVID(x)	(B53_ARL_SRCH_RSTL_0_MACVID + ((x) * 0x10))
+#define B53_ARL_SRCH_RSTL(x)		(B53_ARL_SRCH_RSTL_0 + ((x) * 0x10))
+
+/*************************************************************************
  * Port VLAN Registers
  *************************************************************************/
 

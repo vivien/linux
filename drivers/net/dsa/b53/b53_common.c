@@ -26,7 +26,9 @@
 #include <linux/module.h>
 #include <linux/platform_data/b53.h>
 #include <linux/phy.h>
+#include <linux/etherdevice.h>
 #include <net/dsa.h>
+#include <net/switchdev.h>
 
 #include "b53_regs.h"
 #include "b53_priv.h"
@@ -785,6 +787,251 @@ static void b53_adjust_link(struct dsa_switch *ds, int port,
 	}
 }
 
+/* Address Resolution Logic routines */
+static int b53_arl_op_wait(struct b53_device *dev)
+{
+	unsigned int timeout = 10;
+	u8 reg;
+
+	do {
+		b53_read8(dev, B53_ARLIO_PAGE, B53_ARLTBL_RW_CTRL, &reg);
+		if (!(reg & ARLTBL_START_DONE))
+			return 0;
+
+		usleep_range(1000, 2000);
+	} while (timeout--);
+
+	dev_warn(dev->dev, "timeout waiting for ARL to finish: 0x%02x\n", reg);
+
+	return -ETIMEDOUT;
+}
+
+static int b53_arl_rw_op(struct b53_device *dev, unsigned int op)
+{
+	u8 reg;
+
+	if (op > ARLTBL_RW)
+		return -EINVAL;
+
+	b53_read8(dev, B53_ARLIO_PAGE, B53_ARLTBL_RW_CTRL, &reg);
+	reg |= ARLTBL_START_DONE;
+	if (op)
+		reg |= ARLTBL_RW;
+	else
+		reg &= ~ARLTBL_RW;
+	b53_write8(dev, B53_ARLIO_PAGE, B53_ARLTBL_RW_CTRL, reg);
+
+	return b53_arl_op_wait(dev);
+}
+
+static int b53_arl_read(struct b53_device *dev, u64 mac,
+			u16 vid, struct b53_arl_entry *ent, u8 *idx,
+			bool is_valid)
+{
+	unsigned int i;
+	int ret;
+
+	ret = b53_arl_op_wait(dev);
+	if (ret) {
+		dev_err(dev->dev, "failed to to wait!\n");
+		return ret;
+	}
+
+	/* Read the 4 bins */
+	for (i = 0; i < 4; i++) {
+		u64 mac_vid;
+		u32 fwd_entry;
+
+		b53_read64(dev, B53_ARLIO_PAGE,
+			   B53_ARLTBL_MAC_VID_ENTRY(i), &mac_vid);
+		b53_read32(dev, B53_ARLIO_PAGE,
+			   B53_ARLTBL_DATA_ENTRY(i), &fwd_entry);
+		b53_arl_to_entry(ent, mac_vid, fwd_entry);
+
+		if (ent->is_valid && is_valid) {
+			*idx = i;
+			return 0;
+		}
+
+		/* This is the MAC we just deleted */
+		if (!is_valid && (mac_vid & mac)) {
+			*idx = i;
+			return 0;
+		}
+	}
+
+	return -ENOENT;
+}
+
+static int b53_arl_op(struct b53_device *dev, int op, int port,
+		      const unsigned char *addr, u16 vid, bool is_valid)
+{
+	struct b53_arl_entry ent;
+	u32 fwd_entry;
+	u64 mac, mac_vid = 0;
+	u8 idx = 0;
+	int ret;
+
+	/* Convert the array into a 64-bit MAC */
+	mac = b53_mac_to_u64(addr);
+
+	/* Perform a read for the given MAC and VID */
+	b53_write48(dev, B53_ARLIO_PAGE, B53_MAC_ADDR_IDX, mac);
+	b53_write16(dev, B53_ARLIO_PAGE, B53_VLAN_ID_IDX, vid);
+
+	/* Issue a read operation for this MAC */
+	ret = b53_arl_rw_op(dev, 1);
+	if (ret)
+		return ret;
+
+	ret = b53_arl_read(dev, mac, vid, &ent, &idx, is_valid);
+	/* If this is a read, just finish now */
+	if (op)
+		return ret;
+
+	/* We could not find a matching MAC, so reset to a new entry */
+	if (ret) {
+		fwd_entry = 0;
+		idx = 1;
+	}
+
+	memset(&ent, 0, sizeof(ent));
+	ent.port = port;
+	ent.is_valid = is_valid;
+	ent.vid = vid;
+	ent.is_static = true;
+	memcpy(ent.mac, addr, ETH_ALEN);
+	b53_arl_from_entry(&mac_vid, &fwd_entry, &ent);
+
+	b53_write64(dev, B53_ARLIO_PAGE,
+		    B53_ARLTBL_MAC_VID_ENTRY(idx), mac_vid);
+	b53_write32(dev, B53_ARLIO_PAGE,
+		    B53_ARLTBL_DATA_ENTRY(idx), fwd_entry);
+
+	ret = b53_arl_rw_op(dev, 0);
+	if (ret)
+		return ret;
+
+	/* Re-read the entry to check */
+	return b53_arl_read(dev, mac, vid, &ent, &idx, is_valid);
+}
+
+static int b53_fdb_prepare(struct dsa_switch *ds, int port,
+			   const struct switchdev_obj_port_fdb *fdb,
+			   struct switchdev_trans *trans)
+{
+	/* We do not need to do anything specific here yet */
+	return 0;
+}
+
+static void b53_fdb_add(struct dsa_switch *ds, int port,
+			const struct switchdev_obj_port_fdb *fdb,
+			struct switchdev_trans *trans)
+{
+	struct b53_device *priv = ds_to_priv(ds);
+
+	if (b53_arl_op(priv, 0, port, fdb->addr, fdb->vid, true))
+		pr_err("%s: failed to add MAC address\n", __func__);
+}
+
+static int b53_fdb_del(struct dsa_switch *ds, int port,
+		       const struct switchdev_obj_port_fdb *fdb)
+{
+	struct b53_device *priv = ds_to_priv(ds);
+
+	return b53_arl_op(priv, 0, port, fdb->addr, fdb->vid, false);
+}
+
+static int b53_arl_search_wait(struct b53_device *dev)
+{
+	unsigned timeout = 1000;
+	u8 reg;
+
+	do {
+		b53_read8(dev, B53_ARLIO_PAGE, B53_ARL_SRCH_CTL, &reg);
+		if (!(reg & ARL_SRCH_STDN))
+			return 0;
+
+		if (reg & ARL_SRCH_VLID)
+			return 0;
+
+		usleep_range(1000, 2000);
+	} while (timeout--);
+
+	return -ETIMEDOUT;
+}
+
+static void b53_arl_search_rd(struct b53_device *dev, u8 idx,
+			      struct b53_arl_entry *ent)
+{
+	u64 mac_vid;
+	u32 fwd_entry;
+
+	b53_read64(dev, B53_ARLIO_PAGE,
+		   B53_ARL_SRCH_RSTL_MACVID(idx), &mac_vid);
+	b53_read32(dev, B53_ARLIO_PAGE,
+		   B53_ARL_SRCH_RSTL(idx), &fwd_entry);
+	b53_arl_to_entry(ent, mac_vid, fwd_entry);
+}
+
+static int b53_fdb_copy(struct net_device *dev, int port,
+			const struct b53_arl_entry *ent,
+			struct switchdev_obj_port_fdb *fdb,
+			int (*cb)(struct switchdev_obj *obj))
+{
+	if (!ent->is_valid)
+		return 0;
+
+	if (port != ent->port)
+		return 0;
+
+	ether_addr_copy(fdb->addr, ent->mac);
+	fdb->vid = ent->vid;
+	fdb->ndm_state = ent->is_static ? NUD_NOARP : NUD_REACHABLE;
+
+	return cb(&fdb->obj);
+}
+
+static int b53_fdb_dump(struct dsa_switch *ds, int port,
+			struct switchdev_obj_port_fdb *fdb,
+			int (*cb)(struct switchdev_obj *obj))
+{
+	struct b53_device *priv = ds_to_priv(ds);
+	struct net_device *dev = ds->ports[port].netdev;
+	struct b53_arl_entry results[2];
+	unsigned int count = 0;
+	int ret;
+	u8 reg;
+
+	/* Start search operation */
+	reg = ARL_SRCH_STDN;
+	b53_write8(priv, B53_ARLIO_PAGE, B53_ARL_SRCH_CTL, reg);
+
+	do {
+		ret = b53_arl_search_wait(priv);
+		if (ret)
+			return ret;
+
+		/* Read both entries, then return their values back */
+		b53_arl_search_rd(priv, 0, &results[0]);
+		ret = b53_fdb_copy(dev, port, &results[0], fdb, cb);
+		if (ret)
+			return ret;
+
+		b53_arl_search_rd(priv, 1, &results[1]);
+		ret = b53_fdb_copy(dev, port, &results[1], fdb, cb);
+		if (ret)
+			return ret;
+
+		if (!results[0].is_valid && !results[1].is_valid)
+			break;
+
+	} while (count++ < 1024);
+
+	return 0;
+}
+
+
 static struct dsa_switch_driver b53_switch_ops = {
 	.tag_protocol		= DSA_TAG_PROTO_NONE,
 	.setup			= b53_setup,
@@ -795,6 +1042,10 @@ static struct dsa_switch_driver b53_switch_ops = {
 	.phy_read		= b53_phy_read16,
 	.phy_write		= b53_phy_write16,
 	.adjust_link		= b53_adjust_link,
+	.port_fdb_prepare	= b53_fdb_prepare,
+	.port_fdb_dump		= b53_fdb_dump,
+	.port_fdb_add		= b53_fdb_add,
+	.port_fdb_del		= b53_fdb_del,
 };
 
 struct b53_chip_data {
