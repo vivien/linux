@@ -726,6 +726,7 @@ int mv88e6xxx_update(struct mv88e6xxx_chip *chip, int addr, int reg,
 int mv88e6xxx_wait(struct mv88e6xxx_chip *chip, int addr, int reg, u16 mask);
 
 /* global2.c */
+#ifdef CONFIG_NET_DSA_MV88E6XXX_GLOBAL2
 int mv88e6xxx_g2_smi_phy_read(struct mv88e6xxx_chip *chip, int addr, int reg,
 			      u16 *val);
 int mv88e6xxx_g2_smi_phy_write(struct mv88e6xxx_chip *chip, int addr, int reg,
@@ -736,4 +737,43 @@ int mv88e6xxx_g2_get_eeprom16(struct mv88e6xxx_chip *chip,
 int mv88e6xxx_g2_set_eeprom16(struct mv88e6xxx_chip *chip,
 			      struct ethtool_eeprom *eeprom, u8 *data);
 int mv88e6xxx_g2_setup(struct mv88e6xxx_chip *chip);
+#else
+static inline int mv88e6xxx_g2_smi_phy_read(struct mv88e6xxx_chip *chip,
+					    int addr, int reg, u16 *val)
+{
+	return -EOPNOTSUPP;
+}
+
+static inline int mv88e6xxx_g2_smi_phy_write(struct mv88e6xxx_chip *chip,
+					     int addr, int reg, u16 val)
+{
+	return -EOPNOTSUPP;
+}
+
+static inline int mv88e6xxx_g2_set_switch_mac(struct mv88e6xxx_chip *chip,
+					      u8 *addr)
+{
+	return -EOPNOTSUPP;
+}
+
+static inline int mv88e6xxx_g2_get_eeprom16(struct mv88e6xxx_chip *chip,
+					    struct ethtool_eeprom *eeprom,
+					    u8 *data)
+{
+	return -EOPNOTSUPP;
+}
+
+static inline int mv88e6xxx_g2_set_eeprom16(struct mv88e6xxx_chip *chip,
+					    struct ethtool_eeprom *eeprom,
+					    u8 *data)
+{
+	return -EOPNOTSUPP;
+}
+
+static inline int mv88e6xxx_g2_setup(struct mv88e6xxx_chip *chip)
+{
+	return 0;
+}
+#endif /* CONFIG_NET_DSA_MV88E6XXX_GLOBAL2 */
+
 #endif
