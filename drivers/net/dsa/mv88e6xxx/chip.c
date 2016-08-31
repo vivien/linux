@@ -38,6 +38,7 @@
 #include "chip.h"
 #include "global1.h"
 #include "global2.h"
+#include "global3.h"
 #include "hwtstamp.h"
 #include "phy.h"
 #include "port.h"
@@ -4127,6 +4128,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
 		.phy_base_addr = 0x0,
 		.global1_addr = 0x1b,
 		.global2_addr = 0x1c,
+		.global3_addr = 0x1d,
 		.age_time_coeff = 15000,
 		.g1_irqs = 9,
 		.g2_irqs = 10,
@@ -4172,6 +4174,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
 		.phy_base_addr = 0x0,
 		.global1_addr = 0x1b,
 		.global2_addr = 0x1c,
+		.global3_addr = 0x1d,
 		.age_time_coeff = 15000,
 		.g1_irqs = 9,
 		.g2_irqs = 10,

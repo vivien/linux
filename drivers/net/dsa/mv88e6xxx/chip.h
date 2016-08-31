@@ -102,6 +102,7 @@ struct mv88e6xxx_info {
 	unsigned int phy_base_addr;
 	unsigned int global1_addr;
 	unsigned int global2_addr;
+	unsigned int global3_addr;
 	unsigned int age_time_coeff;
 	unsigned int g1_irqs;
 	unsigned int g2_irqs;
