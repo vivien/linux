@@ -37,6 +37,7 @@
 #include "mv88e6xxx.h"
 #include "global1.h"
 #include "global2.h"
+#include "global3.h"
 #include "port.h"
 
 static void assert_reg_lock(struct mv88e6xxx_chip *chip)
@@ -3580,6 +3581,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
 		.num_ports = 7,
 		.port_base_addr = 0x10,
 		.global1_addr = 0x1b,
+		.global3_addr = 0x1d,
 		.age_time_coeff = 15000,
 		.g1_irqs = 9,
 		.atu_move_port_mask = 0xf,
@@ -3597,6 +3599,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
 		.num_ports = 7,
 		.port_base_addr = 0x10,
 		.global1_addr = 0x1b,
+		.global3_addr = 0x1d,
 		.age_time_coeff = 15000,
 		.g1_irqs = 9,
 		.atu_move_port_mask = 0xf,
