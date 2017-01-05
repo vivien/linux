@@ -104,25 +104,21 @@
 					#size-cells = <0>;
 					port@0 {
 						reg = <0>;
-						label = "lan0";
 						phy-handle = <&switch0phy0>;
 					};
 
 					port@1 {
 						reg = <1>;
-						label = "lan1";
 						phy-handle = <&switch0phy1>;
 					};
 
 					port@2 {
 						reg = <2>;
-						label = "lan2";
 						phy-handle = <&switch0phy2>;
 					};
 
 					switch0port5: port@5 {
 						reg = <5>;
-						label = "dsa";
 						phy-mode = "rgmii-txid";
 						link = <&switch1port6
 							&switch2port9>;
@@ -134,7 +130,6 @@
 
 					port@6 {
 						reg = <6>;
-						label = "cpu";
 						ethernet = <&fec1>;
 						fixed-link {
 							speed = <100>;
@@ -186,25 +181,21 @@
 					#size-cells = <0>;
 					port@0 {
 						reg = <0>;
-						label = "lan3";
 						phy-handle = <&switch1phy0>;
 					};
 
 					port@1 {
 						reg = <1>;
-						label = "lan4";
 						phy-handle = <&switch1phy1>;
 					};
 
 					port@2 {
 						reg = <2>;
-						label = "lan5";
 						phy-handle = <&switch1phy2>;
 					};
 
 					switch1port5: port@5 {
 						reg = <5>;
-						label = "dsa";
 						link = <&switch2port9>;
 						phy-mode = "rgmii-txid";
 						fixed-link {
@@ -215,7 +206,6 @@
 
 					switch1port6: port@6 {
 						reg = <6>;
-						label = "dsa";
 						phy-mode = "rgmii-txid";
 						link = <&switch0port5>;
 						fixed-link {
@@ -263,22 +253,18 @@
 					#size-cells = <0>;
 					port@0 {
 						reg = <0>;
-						label = "lan6";
 					};
 
 					port@1 {
 						reg = <1>;
-						label = "lan7";
 					};
 
 					port@2 {
 						reg = <2>;
-						label = "lan8";
 					};
 
 					port@3 {
 						reg = <3>;
-						label = "optical3";
 						fixed-link {
 							speed = <1000>;
 							full-duplex;
@@ -289,7 +275,6 @@
 
 					port@4 {
 						reg = <4>;
-						label = "optical4";
 						fixed-link {
 							speed = <1000>;
 							full-duplex;
@@ -300,7 +285,6 @@
 
 					switch2port9: port@9 {
 						reg = <9>;
-						label = "dsa";
 						phy-mode = "rgmii-txid";
 						link = <&switch1port5
 							&switch0port5>;
