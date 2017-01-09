@@ -983,6 +983,19 @@ static void dsa_slave_poll_controller(struct net_device *dev)
 }
 #endif
 
+static int dsa_slave_get_phys_port_name(struct net_device *dev, char *buf,
+					size_t len)
+{
+	struct dsa_slave_priv *p = netdev_priv(dev);
+	int ret;
+
+	ret = snprintf(buf, len, "p%d", p->port);
+	if (ret >= len)
+		return -EINVAL;
+
+	return 0;
+}
+
 void dsa_cpu_port_ethtool_init(struct ethtool_ops *ops)
 {
 	ops->get_sset_count = dsa_cpu_port_get_sset_count;
@@ -1030,6 +1043,7 @@ static const struct net_device_ops dsa_slave_netdev_ops = {
 	.ndo_bridge_getlink	= switchdev_port_bridge_getlink,
 	.ndo_bridge_setlink	= switchdev_port_bridge_setlink,
 	.ndo_bridge_dellink	= switchdev_port_bridge_dellink,
+	.ndo_get_phys_port_name	= dsa_slave_get_phys_port_name,
 };
 
 static const struct switchdev_ops dsa_slave_switchdev_ops = {
