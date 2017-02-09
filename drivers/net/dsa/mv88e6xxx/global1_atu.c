@@ -224,8 +224,11 @@ static int mv88e6xxx_g1_atu_move(struct mv88e6xxx_chip *chip, u16 fid,
 				 int from_port, int to_port, bool static_too)
 {
 	struct mv88e6xxx_atu_entry entry = { 0 };
-	unsigned long mask = 0xf;
+	unsigned long mask = chip->info->atu_move_port_mask;
 	int shift = bitmap_weight(&mask, 16);
+
+	if (!mask)
+		return -EOPNOTSUPP;
 
 	entry.fid = fid,
 	entry.state = 0xf, /* Full EntryState means Move */
@@ -239,7 +242,10 @@ int mv88e6xxx_g1_atu_remove(struct mv88e6xxx_chip *chip, u16 fid, int port,
 			    bool static_too)
 {
 	int from_port = port;
-	int to_port = 0xf;
+	int to_port = chip->info->atu_move_port_mask;
+
+	if (!to_port)
+		return -EOPNOTSUPP;
 
 	return mv88e6xxx_g1_atu_move(chip, fid, from_port, to_port, static_too);
 }

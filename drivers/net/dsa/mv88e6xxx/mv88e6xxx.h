@@ -707,6 +707,11 @@ struct mv88e6xxx_info {
 	unsigned int g1_irqs;
 	enum dsa_tag_protocol tag_protocol;
 	unsigned long long flags;
+
+	/* Mask for FromPort and ToPort value of PortVec used in ATU Move
+	 * operation. 0 means that the ATU Move operation is not supported.
+	 */
+	u8 atu_move_port_mask;
 	const struct mv88e6xxx_ops *ops;
 };
 
