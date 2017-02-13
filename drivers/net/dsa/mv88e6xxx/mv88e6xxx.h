@@ -728,7 +728,8 @@ struct mv88e6xxx_vtu_entry {
 	u16	fid;
 	u8	sid;
 	bool	valid;
-	u8	data[DSA_MAX_PORTS];
+	u8	member[DSA_MAX_PORTS];
+	u8	state[DSA_MAX_PORTS];
 };
 
 struct mv88e6xxx_bus_ops;
@@ -937,6 +938,11 @@ static inline bool mv88e6xxx_has(struct mv88e6xxx_chip *chip,
 				 unsigned long flags)
 {
 	return (chip->info->flags & flags) == flags;
+}
+
+static inline bool mv88e6xxx_has_vtu(struct mv88e6xxx_chip *chip)
+{
+	return mv88e6xxx_has(chip, MV88E6XXX_FLAG_VTU);
 }
 
 static inline unsigned int mv88e6xxx_num_databases(struct mv88e6xxx_chip *chip)
