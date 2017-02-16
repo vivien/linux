@@ -912,6 +912,12 @@ struct mv88e6xxx_ops {
 
 	/* Can be either in g1 or g2, so don't use a prefix */
 	int (*mgmt_rsvd2cpu)(struct mv88e6xxx_chip *chip);
+
+	/* VLAN Translation Unit operations */
+	int (*vtu_getnext)(struct mv88e6xxx_chip *chip,
+			   struct mv88e6xxx_vtu_entry *entry);
+	int (*vtu_loadpurge)(struct mv88e6xxx_chip *chip,
+			     struct mv88e6xxx_vtu_entry *entry);
 };
 
 struct mv88e6xxx_irq_ops {
@@ -942,7 +948,7 @@ static inline bool mv88e6xxx_has(struct mv88e6xxx_chip *chip,
 
 static inline bool mv88e6xxx_has_vtu(struct mv88e6xxx_chip *chip)
 {
-	return mv88e6xxx_has(chip, MV88E6XXX_FLAG_VTU);
+	return chip->info->ops->vtu_getnext && chip->info->ops->vtu_loadpurge;
 }
 
 static inline unsigned int mv88e6xxx_num_databases(struct mv88e6xxx_chip *chip)
