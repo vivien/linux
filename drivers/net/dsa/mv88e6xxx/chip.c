@@ -1122,34 +1122,6 @@ out:
 	return err;
 }
 
-static int _mv88e6xxx_port_based_vlan_map(struct mv88e6xxx_chip *chip, int port)
-{
-	struct dsa_switch *ds = chip->ds;
-	struct net_device *bridge = ds->ports[port].bridge_dev;
-	u16 output_ports = 0;
-	int i;
-
-	/* allow CPU port or DSA link(s) to send frames to every port */
-	if (dsa_is_cpu_port(ds, port) || dsa_is_dsa_port(ds, port)) {
-		output_ports = ~0;
-	} else {
-		for (i = 0; i < mv88e6xxx_num_ports(chip); ++i) {
-			/* allow sending frames to every group member */
-			if (bridge && ds->ports[i].bridge_dev == bridge)
-				output_ports |= BIT(i);
-
-			/* allow sending frames to CPU port and DSA link(s) */
-			if (dsa_is_cpu_port(ds, i) || dsa_is_dsa_port(ds, i))
-				output_ports |= BIT(i);
-		}
-	}
-
-	/* prevent frames from going back out of the port they came in on */
-	output_ports &= ~BIT(port);
-
-	return mv88e6xxx_port_set_vlan_map(chip, port, output_ports);
-}
-
 static void mv88e6xxx_port_stp_state_set(struct dsa_switch *ds, int port,
 					 u8 state)
 {
@@ -1180,6 +1152,49 @@ static void mv88e6xxx_port_stp_state_set(struct dsa_switch *ds, int port,
 
 	if (err)
 		netdev_err(ds->ports[port].netdev, "failed to update state\n");
+}
+
+static u16 mv88e6xxx_port_vlan(struct mv88e6xxx_chip *chip, int dev, int port)
+{
+	struct dsa_switch *ds = NULL;
+	struct net_device *br;
+	u16 pvlan;
+	int i;
+
+	if (dev < DSA_MAX_SWITCHES)
+		ds = chip->ds->dst->ds[dev];
+
+	/* Prevent frames from unknown switch or port */
+	if (!ds || port >= ds->num_ports)
+		return 0;
+
+	/* Frames from external DSA and CPU ports can egress any local port */
+	if (dsa_is_cpu_port(ds, port) || dsa_is_dsa_port(ds, port))
+		return mv88e6xxx_port_mask(chip);
+
+	br = ds->ports[port].bridge_dev;
+	pvlan = 0;
+
+	/* Frames from external user ports can egress any local DSA and CPU
+	 * ports, as well as any local member of their bridge group.
+	 */
+	for (i = 0; i < mv88e6xxx_num_ports(chip); ++i)
+		if (dsa_is_cpu_port(chip->ds, i) ||
+		    dsa_is_dsa_port(chip->ds, i) ||
+		    (br && chip->ds->ports[i].bridge_dev == br))
+			pvlan |= BIT(i);
+
+	return pvlan;
+}
+
+static int mv88e6xxx_port_vlan_map(struct mv88e6xxx_chip *chip, int port)
+{
+	u16 output_ports = mv88e6xxx_port_vlan(chip, chip->ds->index, port);
+
+	/* prevent frames from going back out of the port they came in on */
+	output_ports &= ~BIT(port);
+
+	return mv88e6xxx_port_set_vlan_map(chip, port, output_ports);
 }
 
 static int mv88e6xxx_pvt_map(struct mv88e6xxx_chip *chip, int dev, int port)
@@ -1839,23 +1854,31 @@ static int mv88e6xxx_port_fdb_dump(struct dsa_switch *ds, int port,
 	return err;
 }
 
+static int mv88e6xxx_inchip_bridge_map(struct mv88e6xxx_chip *chip,
+				       struct net_device *br)
+{
+	int i, err;
+
+	/* Remap the Port VLAN of each local bridge group member */
+	for (i = 0; i < mv88e6xxx_num_ports(chip); ++i) {
+		if (chip->ds->ports[i].bridge_dev == br) {
+			err = mv88e6xxx_port_vlan_map(chip, i);
+			if (err)
+				return err;
+		}
+	}
+
+	return 0;
+}
+
 static int mv88e6xxx_port_bridge_join(struct dsa_switch *ds, int port,
 				      struct net_device *br)
 {
 	struct mv88e6xxx_chip *chip = ds->priv;
-	int i, err = 0;
+	int err;
 
 	mutex_lock(&chip->reg_lock);
-
-	/* Remap each port's VLANTable */
-	for (i = 0; i < mv88e6xxx_num_ports(chip); ++i) {
-		if (ds->ports[i].bridge_dev == br) {
-			err = _mv88e6xxx_port_based_vlan_map(chip, i);
-			if (err)
-				break;
-		}
-	}
-
+	err = mv88e6xxx_inchip_bridge_map(chip, br);
 	mutex_unlock(&chip->reg_lock);
 
 	return err;
@@ -1865,17 +1888,11 @@ static void mv88e6xxx_port_bridge_leave(struct dsa_switch *ds, int port,
 					struct net_device *br)
 {
 	struct mv88e6xxx_chip *chip = ds->priv;
-	int i;
 
 	mutex_lock(&chip->reg_lock);
-
-	/* Remap each port's VLANTable */
-	for (i = 0; i < mv88e6xxx_num_ports(chip); ++i)
-		if (i == port || ds->ports[i].bridge_dev == br)
-			if (_mv88e6xxx_port_based_vlan_map(chip, i))
-				netdev_warn(ds->ports[i].netdev,
-					    "failed to remap\n");
-
+	if (mv88e6xxx_inchip_bridge_map(chip, br) ||
+	    mv88e6xxx_port_vlan_map(chip, port))
+		dev_err(ds->dev, "failed to remap in-chip Port VLAN\n");
 	mutex_unlock(&chip->reg_lock);
 }
 
@@ -2186,7 +2203,7 @@ static int mv88e6xxx_setup_port(struct mv88e6xxx_chip *chip, int port)
 	if (err)
 		return err;
 
-	err = _mv88e6xxx_port_based_vlan_map(chip, port);
+	err = mv88e6xxx_port_vlan_map(chip, port);
 	if (err)
 		return err;
 
