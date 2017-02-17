@@ -1182,6 +1182,42 @@ static void mv88e6xxx_port_stp_state_set(struct dsa_switch *ds, int port,
 		netdev_err(ds->ports[port].netdev, "failed to update state\n");
 }
 
+static int mv88e6xxx_pvt_map(struct mv88e6xxx_chip *chip, int dev, int port)
+{
+	u16 pvlan = mv88e6xxx_port_mask(chip);
+
+	if (!chip->info->ops->pvt_write)
+		return -EOPNOTSUPP;
+
+	return chip->info->ops->pvt_write(chip, dev, port, pvlan);
+}
+
+static int mv88e6xxx_pvt_init(struct mv88e6xxx_chip *chip)
+{
+	int dev, port;
+	int err;
+
+	if (!mv88e6xxx_has_pvt(chip))
+		return 0;
+
+	/* Clear 5 Bit Port for usage with Marvell Link Street devices:
+	 * use 4 bits for the Src_Port/Src_Trunk and 5 bits for the Src_Dev.
+	 */
+	err = mv88e6xxx_g2_misc_5_bit_port(chip, false);
+	if (err)
+		return err;
+
+	for (dev = 0; dev < 32; ++dev) {
+		for (port = 0; port < 16; ++port) {
+			err = mv88e6xxx_pvt_map(chip, dev, port);
+			if (err)
+				return err;
+		}
+	}
+
+	return 0;
+}
+
 static int mv88e6xxx_atu_getnext(struct mv88e6xxx_chip *chip,
 				 struct mv88e6xxx_atu_entry *entry)
 {
@@ -2343,6 +2379,12 @@ static int mv88e6xxx_setup(struct dsa_switch *ds)
 		if (err)
 			goto unlock;
 	}
+
+	/* Initialize the Cross-chip Port VLAN Table */
+	err = mv88e6xxx_pvt_init(chip);
+	if (err)
+		goto unlock;
+
 	/* Clear all VLAN entries */
 	err = mv88e6xxx_vtu_flush(chip);
 	if (err)
@@ -2597,6 +2639,8 @@ static const struct mv88e6xxx_ops mv88e6085_ops = {
 	.ppu_enable = mv88e6185_g1_ppu_enable,
 	.ppu_disable = mv88e6185_g1_ppu_disable,
 	.reset = mv88e6185_g1_reset,
+	.pvt_read = mv88e6xxx_g2_pvt_read,
+	.pvt_write = mv88e6xxx_g2_pvt_write,
 	.vtu_getnext = mv88e6352_g1_vtu_getnext,
 	.vtu_loadpurge = mv88e6352_g1_vtu_loadpurge,
 };
@@ -2648,6 +2692,8 @@ static const struct mv88e6xxx_ops mv88e6097_ops = {
 	.watchdog_ops = &mv88e6097_watchdog_ops,
 	.mgmt_rsvd2cpu = mv88e6095_g2_mgmt_rsvd2cpu,
 	.reset = mv88e6352_g1_reset,
+	.pvt_read = mv88e6xxx_g2_pvt_read,
+	.pvt_write = mv88e6xxx_g2_pvt_write,
 	.vtu_getnext = mv88e6352_g1_vtu_getnext,
 	.vtu_loadpurge = mv88e6352_g1_vtu_loadpurge,
 };
@@ -2671,6 +2717,8 @@ static const struct mv88e6xxx_ops mv88e6123_ops = {
 	.watchdog_ops = &mv88e6097_watchdog_ops,
 	.mgmt_rsvd2cpu = mv88e6095_g2_mgmt_rsvd2cpu,
 	.reset = mv88e6352_g1_reset,
+	.pvt_read = mv88e6xxx_g2_pvt_read,
+	.pvt_write = mv88e6xxx_g2_pvt_write,
 	.vtu_getnext = mv88e6352_g1_vtu_getnext,
 	.vtu_loadpurge = mv88e6352_g1_vtu_loadpurge,
 };
@@ -2730,6 +2778,8 @@ static const struct mv88e6xxx_ops mv88e6161_ops = {
 	.watchdog_ops = &mv88e6097_watchdog_ops,
 	.mgmt_rsvd2cpu = mv88e6095_g2_mgmt_rsvd2cpu,
 	.reset = mv88e6352_g1_reset,
+	.pvt_read = mv88e6xxx_g2_pvt_read,
+	.pvt_write = mv88e6xxx_g2_pvt_write,
 	.vtu_getnext = mv88e6352_g1_vtu_getnext,
 	.vtu_loadpurge = mv88e6352_g1_vtu_loadpurge,
 };
@@ -2751,6 +2801,8 @@ static const struct mv88e6xxx_ops mv88e6165_ops = {
 	.watchdog_ops = &mv88e6097_watchdog_ops,
 	.mgmt_rsvd2cpu = mv88e6095_g2_mgmt_rsvd2cpu,
 	.reset = mv88e6352_g1_reset,
+	.pvt_read = mv88e6xxx_g2_pvt_read,
+	.pvt_write = mv88e6xxx_g2_pvt_write,
 	.vtu_getnext = mv88e6352_g1_vtu_getnext,
 	.vtu_loadpurge = mv88e6352_g1_vtu_loadpurge,
 };
@@ -2780,6 +2832,8 @@ static const struct mv88e6xxx_ops mv88e6171_ops = {
 	.watchdog_ops = &mv88e6097_watchdog_ops,
 	.mgmt_rsvd2cpu = mv88e6095_g2_mgmt_rsvd2cpu,
 	.reset = mv88e6352_g1_reset,
+	.pvt_read = mv88e6xxx_g2_pvt_read,
+	.pvt_write = mv88e6xxx_g2_pvt_write,
 	.vtu_getnext = mv88e6352_g1_vtu_getnext,
 	.vtu_loadpurge = mv88e6352_g1_vtu_loadpurge,
 };
@@ -2811,6 +2865,8 @@ static const struct mv88e6xxx_ops mv88e6172_ops = {
 	.watchdog_ops = &mv88e6097_watchdog_ops,
 	.mgmt_rsvd2cpu = mv88e6095_g2_mgmt_rsvd2cpu,
 	.reset = mv88e6352_g1_reset,
+	.pvt_read = mv88e6xxx_g2_pvt_read,
+	.pvt_write = mv88e6xxx_g2_pvt_write,
 	.vtu_getnext = mv88e6352_g1_vtu_getnext,
 	.vtu_loadpurge = mv88e6352_g1_vtu_loadpurge,
 };
@@ -2840,6 +2896,8 @@ static const struct mv88e6xxx_ops mv88e6175_ops = {
 	.watchdog_ops = &mv88e6097_watchdog_ops,
 	.mgmt_rsvd2cpu = mv88e6095_g2_mgmt_rsvd2cpu,
 	.reset = mv88e6352_g1_reset,
+	.pvt_read = mv88e6xxx_g2_pvt_read,
+	.pvt_write = mv88e6xxx_g2_pvt_write,
 	.vtu_getnext = mv88e6352_g1_vtu_getnext,
 	.vtu_loadpurge = mv88e6352_g1_vtu_loadpurge,
 };
@@ -2871,6 +2929,8 @@ static const struct mv88e6xxx_ops mv88e6176_ops = {
 	.watchdog_ops = &mv88e6097_watchdog_ops,
 	.mgmt_rsvd2cpu = mv88e6095_g2_mgmt_rsvd2cpu,
 	.reset = mv88e6352_g1_reset,
+	.pvt_read = mv88e6xxx_g2_pvt_read,
+	.pvt_write = mv88e6xxx_g2_pvt_write,
 	.vtu_getnext = mv88e6352_g1_vtu_getnext,
 	.vtu_loadpurge = mv88e6352_g1_vtu_loadpurge,
 };
@@ -2928,6 +2988,8 @@ static const struct mv88e6xxx_ops mv88e6190_ops = {
 	.watchdog_ops = &mv88e6390_watchdog_ops,
 	.mgmt_rsvd2cpu = mv88e6390_g1_mgmt_rsvd2cpu,
 	.reset = mv88e6352_g1_reset,
+	.pvt_read = mv88e6xxx_g2_pvt_read,
+	.pvt_write = mv88e6xxx_g2_pvt_write,
 	.vtu_getnext = mv88e6390_g1_vtu_getnext,
 	.vtu_loadpurge = mv88e6390_g1_vtu_loadpurge,
 };
@@ -2958,6 +3020,8 @@ static const struct mv88e6xxx_ops mv88e6190x_ops = {
 	.watchdog_ops = &mv88e6390_watchdog_ops,
 	.mgmt_rsvd2cpu = mv88e6390_g1_mgmt_rsvd2cpu,
 	.reset = mv88e6352_g1_reset,
+	.pvt_read = mv88e6xxx_g2_pvt_read,
+	.pvt_write = mv88e6xxx_g2_pvt_write,
 	.vtu_getnext = mv88e6390_g1_vtu_getnext,
 	.vtu_loadpurge = mv88e6390_g1_vtu_loadpurge,
 };
@@ -2988,6 +3052,8 @@ static const struct mv88e6xxx_ops mv88e6191_ops = {
 	.watchdog_ops = &mv88e6390_watchdog_ops,
 	.mgmt_rsvd2cpu = mv88e6390_g1_mgmt_rsvd2cpu,
 	.reset = mv88e6352_g1_reset,
+	.pvt_read = mv88e6xxx_g2_pvt_read,
+	.pvt_write = mv88e6xxx_g2_pvt_write,
 	.vtu_getnext = mv88e6390_g1_vtu_getnext,
 	.vtu_loadpurge = mv88e6390_g1_vtu_loadpurge,
 };
@@ -3019,6 +3085,8 @@ static const struct mv88e6xxx_ops mv88e6240_ops = {
 	.watchdog_ops = &mv88e6097_watchdog_ops,
 	.mgmt_rsvd2cpu = mv88e6095_g2_mgmt_rsvd2cpu,
 	.reset = mv88e6352_g1_reset,
+	.pvt_read = mv88e6xxx_g2_pvt_read,
+	.pvt_write = mv88e6xxx_g2_pvt_write,
 	.vtu_getnext = mv88e6352_g1_vtu_getnext,
 	.vtu_loadpurge = mv88e6352_g1_vtu_loadpurge,
 };
@@ -3050,6 +3118,8 @@ static const struct mv88e6xxx_ops mv88e6290_ops = {
 	.watchdog_ops = &mv88e6390_watchdog_ops,
 	.mgmt_rsvd2cpu = mv88e6390_g1_mgmt_rsvd2cpu,
 	.reset = mv88e6352_g1_reset,
+	.pvt_read = mv88e6xxx_g2_pvt_read,
+	.pvt_write = mv88e6xxx_g2_pvt_write,
 	.vtu_getnext = mv88e6390_g1_vtu_getnext,
 	.vtu_loadpurge = mv88e6390_g1_vtu_loadpurge,
 };
@@ -3079,6 +3149,8 @@ static const struct mv88e6xxx_ops mv88e6320_ops = {
 	.g1_set_egress_port = mv88e6095_g1_set_egress_port,
 	.mgmt_rsvd2cpu = mv88e6095_g2_mgmt_rsvd2cpu,
 	.reset = mv88e6352_g1_reset,
+	.pvt_read = mv88e6xxx_g2_pvt_read,
+	.pvt_write = mv88e6xxx_g2_pvt_write,
 	.vtu_getnext = mv88e6185_g1_vtu_getnext,
 	.vtu_loadpurge = mv88e6185_g1_vtu_loadpurge,
 };
@@ -3136,6 +3208,8 @@ static const struct mv88e6xxx_ops mv88e6350_ops = {
 	.watchdog_ops = &mv88e6097_watchdog_ops,
 	.mgmt_rsvd2cpu = mv88e6095_g2_mgmt_rsvd2cpu,
 	.reset = mv88e6352_g1_reset,
+	.pvt_read = mv88e6xxx_g2_pvt_read,
+	.pvt_write = mv88e6xxx_g2_pvt_write,
 	.vtu_getnext = mv88e6352_g1_vtu_getnext,
 	.vtu_loadpurge = mv88e6352_g1_vtu_loadpurge,
 };
@@ -3165,6 +3239,8 @@ static const struct mv88e6xxx_ops mv88e6351_ops = {
 	.watchdog_ops = &mv88e6097_watchdog_ops,
 	.mgmt_rsvd2cpu = mv88e6095_g2_mgmt_rsvd2cpu,
 	.reset = mv88e6352_g1_reset,
+	.pvt_read = mv88e6xxx_g2_pvt_read,
+	.pvt_write = mv88e6xxx_g2_pvt_write,
 	.vtu_getnext = mv88e6352_g1_vtu_getnext,
 	.vtu_loadpurge = mv88e6352_g1_vtu_loadpurge,
 };
@@ -3196,6 +3272,8 @@ static const struct mv88e6xxx_ops mv88e6352_ops = {
 	.watchdog_ops = &mv88e6097_watchdog_ops,
 	.mgmt_rsvd2cpu = mv88e6095_g2_mgmt_rsvd2cpu,
 	.reset = mv88e6352_g1_reset,
+	.pvt_read = mv88e6xxx_g2_pvt_read,
+	.pvt_write = mv88e6xxx_g2_pvt_write,
 	.vtu_getnext = mv88e6352_g1_vtu_getnext,
 	.vtu_loadpurge = mv88e6352_g1_vtu_loadpurge,
 };
@@ -3227,6 +3305,8 @@ static const struct mv88e6xxx_ops mv88e6141_ops = {
 	.watchdog_ops = &mv88e6390_watchdog_ops,
 	.mgmt_rsvd2cpu =  mv88e6390_g1_mgmt_rsvd2cpu,
 	.reset = mv88e6352_g1_reset,
+	.pvt_read = mv88e6xxx_g2_pvt_read,
+	.pvt_write = mv88e6xxx_g2_pvt_write,
 	.vtu_getnext = mv88e6352_g1_vtu_getnext,
 	.vtu_loadpurge = mv88e6352_g1_vtu_loadpurge,
 };
@@ -3258,6 +3338,8 @@ static const struct mv88e6xxx_ops mv88e6341_ops = {
 	.watchdog_ops = &mv88e6390_watchdog_ops,
 	.mgmt_rsvd2cpu =  mv88e6390_g1_mgmt_rsvd2cpu,
 	.reset = mv88e6352_g1_reset,
+	.pvt_read = mv88e6xxx_g2_pvt_read,
+	.pvt_write = mv88e6xxx_g2_pvt_write,
 	.vtu_getnext = mv88e6352_g1_vtu_getnext,
 	.vtu_loadpurge = mv88e6352_g1_vtu_loadpurge,
 };
@@ -3291,6 +3373,8 @@ static const struct mv88e6xxx_ops mv88e6390_ops = {
 	.watchdog_ops = &mv88e6390_watchdog_ops,
 	.mgmt_rsvd2cpu = mv88e6390_g1_mgmt_rsvd2cpu,
 	.reset = mv88e6352_g1_reset,
+	.pvt_read = mv88e6xxx_g2_pvt_read,
+	.pvt_write = mv88e6xxx_g2_pvt_write,
 	.vtu_getnext = mv88e6390_g1_vtu_getnext,
 	.vtu_loadpurge = mv88e6390_g1_vtu_loadpurge,
 };
@@ -3323,6 +3407,8 @@ static const struct mv88e6xxx_ops mv88e6390x_ops = {
 	.watchdog_ops = &mv88e6390_watchdog_ops,
 	.mgmt_rsvd2cpu = mv88e6390_g1_mgmt_rsvd2cpu,
 	.reset = mv88e6352_g1_reset,
+	.pvt_read = mv88e6xxx_g2_pvt_read,
+	.pvt_write = mv88e6xxx_g2_pvt_write,
 	.vtu_getnext = mv88e6390_g1_vtu_getnext,
 	.vtu_loadpurge = mv88e6390_g1_vtu_loadpurge,
 };
@@ -3353,6 +3439,8 @@ static const struct mv88e6xxx_ops mv88e6391_ops = {
 	.watchdog_ops = &mv88e6390_watchdog_ops,
 	.mgmt_rsvd2cpu = mv88e6390_g1_mgmt_rsvd2cpu,
 	.reset = mv88e6352_g1_reset,
+	.pvt_read = mv88e6xxx_g2_pvt_read,
+	.pvt_write = mv88e6xxx_g2_pvt_write,
 	.vtu_getnext = mv88e6390_g1_vtu_getnext,
 	.vtu_loadpurge = mv88e6390_g1_vtu_loadpurge,
 };
