@@ -292,10 +292,24 @@ struct switchdev_obj_port_vlan;
 
 #define DSA_NOTIFIER_BRIDGE_JOIN		1
 #define DSA_NOTIFIER_BRIDGE_LEAVE		2
+#define DSA_NOTIFIER_SWITCHDEV_ATTR_GET		3
+#define DSA_NOTIFIER_SWITCHDEV_ATTR_SET		4
+#define DSA_NOTIFIER_SWITCHDEV_OBJ_ADD		5
+#define DSA_NOTIFIER_SWITCHDEV_OBJ_DEL		6
+#define DSA_NOTIFIER_SWITCHDEV_OBJ_DUMP		7
 
 /* DSA_NOTIFIER_BRIDGE_* */
 struct dsa_notifier_bridge_info {
 	struct net_device *br;
+	int sw_index;
+	int port;
+};
+
+/* DSA_NOTIFIER_SWITCHDEV_* */
+struct dsa_notifier_switchdev_info {
+	struct switchdev_obj *obj;
+	struct switchdev_attr *attr;
+	struct switchdev_trans *trans;
 	int sw_index;
 	int port;
 };
