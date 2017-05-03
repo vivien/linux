@@ -183,3 +183,37 @@ int nbp_switchdev_vlan_del(const struct net_bridge_port *p, u16 vid)
 
 	return switchdev_port_obj_del(p->dev, &v.obj);
 }
+
+int br_switchdev_vlan_filtering(const struct net_bridge *br, bool val)
+{
+	struct switchdev_attr attr = {
+		.orig_dev = br->dev,
+		.id = SWITCHDEV_ATTR_ID_BRIDGE_VLAN_FILTERING,
+		.flags = SWITCHDEV_F_SKIP_EOPNOTSUPP,
+		.u.vlan_filtering = val,
+	};
+	int err;
+
+	err = switchdev_port_attr_set(br->dev, &attr);
+	if (err && err != -EOPNOTSUPP)
+		return err;
+
+	return 0;
+}
+
+int nbp_switchdev_vlan_filtering(const struct net_bridge_port *p)
+{
+	struct switchdev_attr attr = {
+		.orig_dev = p->br->dev,
+		.id = SWITCHDEV_ATTR_ID_BRIDGE_VLAN_FILTERING,
+		.flags = SWITCHDEV_F_SKIP_EOPNOTSUPP,
+		.u.vlan_filtering = p->br->vlan_enabled,
+	};
+	int err;
+
+	err = switchdev_port_attr_set(p->dev, &attr);
+	if (err && err != -EOPNOTSUPP)
+		return err;
+
+	return 0;
+}
