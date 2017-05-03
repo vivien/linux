@@ -12,7 +12,6 @@
  */
 #include <linux/kernel.h>
 #include <linux/rculist.h>
-#include <net/switchdev.h>
 
 #include "br_private.h"
 #include "br_private_stp.h"
@@ -556,24 +555,6 @@ int br_set_max_age(struct net_bridge *br, unsigned long val)
 
 }
 
-/* called under bridge lock */
-int __set_ageing_time(struct net_device *dev, unsigned long t)
-{
-	struct switchdev_attr attr = {
-		.orig_dev = dev,
-		.id = SWITCHDEV_ATTR_ID_BRIDGE_AGEING_TIME,
-		.flags = SWITCHDEV_F_SKIP_EOPNOTSUPP | SWITCHDEV_F_DEFER,
-		.u.ageing_time = jiffies_to_clock_t(t),
-	};
-	int err;
-
-	err = switchdev_port_attr_set(dev, &attr);
-	if (err && err != -EOPNOTSUPP)
-		return err;
-
-	return 0;
-}
-
 /* Set time interval that dynamic forwarding entries live
  * For pure software bridge, allow values outside the 802.1
  * standard specification for special cases:
@@ -587,7 +568,7 @@ int br_set_ageing_time(struct net_bridge *br, clock_t ageing_time)
 	unsigned long t = clock_t_to_jiffies(ageing_time);
 	int err;
 
-	err = __set_ageing_time(br->dev, t);
+	err = br_switchdev_ageing_time(br, t);
 	if (err)
 		return err;
 
@@ -620,7 +601,7 @@ void __br_set_topology_change(struct net_bridge *br, unsigned char val)
 			br_debug(br, "restoring ageing time to %lu\n", t);
 		}
 
-		err = __set_ageing_time(br->dev, t);
+		err = br_switchdev_ageing_time(br, t);
 		if (err)
 			br_warn(br, "error offloading ageing time\n");
 		else

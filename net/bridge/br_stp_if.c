@@ -15,7 +15,6 @@
 #include <linux/kmod.h>
 #include <linux/etherdevice.h>
 #include <linux/rtnetlink.h>
-#include <net/switchdev.h>
 
 #include "br_private.h"
 #include "br_private_stp.h"
@@ -44,7 +43,7 @@ void br_init_port(struct net_bridge_port *p)
 	p->topology_change_ack = 0;
 	p->config_pending = 0;
 
-	err = __set_ageing_time(p->dev, p->br->ageing_time);
+	err = nbp_switchdev_ageing_time(p);
 	if (err)
 		netdev_err(p->dev, "failed to offload ageing time\n");
 }
