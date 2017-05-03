@@ -158,3 +158,16 @@ int nbp_switchdev_mdb_del(const struct net_bridge_port *p,
 
 	return switchdev_port_obj_del(p->dev, &mdb.obj);
 }
+
+int nbp_switchdev_vlan_add(const struct net_bridge_port *p, u16 vid, u16 flags)
+{
+	struct switchdev_obj_port_vlan v = {
+		.obj.orig_dev = p->dev,
+		.obj.id = SWITCHDEV_OBJ_ID_PORT_VLAN,
+		.flags = flags,
+		.vid_begin = vid,
+		.vid_end = vid,
+	};
+
+	return switchdev_port_obj_add(p->dev, &v.obj);
+}

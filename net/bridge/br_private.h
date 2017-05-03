@@ -1094,6 +1094,7 @@ int nbp_switchdev_mdb_add(const struct net_bridge_port *p,
 			  const unsigned char *addr, u16 vid, void *priv);
 int nbp_switchdev_mdb_del(const struct net_bridge_port *p,
 			  const unsigned char *addr, u16 vid);
+int nbp_switchdev_vlan_add(const struct net_bridge_port *p, u16 vid, u16 flags);
 #else
 static inline int br_switchdev_notifier_register(void)
 {
@@ -1141,6 +1142,12 @@ int nbp_switchdev_mdb_add(const struct net_bridge_port *p,
 
 static inline int nbp_switchdev_mdb_del(const struct net_bridge_port *p,
 					const unsigned char *addr, u16 vid)
+{
+	return -EOPNOTSUPP;
+}
+
+static inline int nbp_switchdev_vlan_add(const struct net_bridge_port *p,
+					 u16 vid, u16 flags)
 {
 	return -EOPNOTSUPP;
 }
