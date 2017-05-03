@@ -70,24 +70,16 @@ static void __vlan_add_flags(struct net_bridge_vlan *v, u16 flags)
 		v->flags &= ~BRIDGE_VLAN_INFO_UNTAGGED;
 }
 
-static int __vlan_vid_add(struct net_device *dev, struct net_bridge *br,
-			  u16 vid, u16 flags)
+static int __vlan_vid_add(const struct net_bridge_port *p, u16 vid, u16 flags)
 {
-	struct switchdev_obj_port_vlan v = {
-		.obj.orig_dev = dev,
-		.obj.id = SWITCHDEV_OBJ_ID_PORT_VLAN,
-		.flags = flags,
-		.vid_begin = vid,
-		.vid_end = vid,
-	};
 	int err;
 
 	/* Try switchdev op first. In case it is not supported, fallback to
 	 * 8021q add.
 	 */
-	err = switchdev_port_obj_add(dev, &v.obj);
+	err = nbp_switchdev_vlan_add(p, vid, flags);
 	if (err == -EOPNOTSUPP)
-		return vlan_vid_add(dev, br->vlan_proto, vid);
+		return vlan_vid_add(p->dev, p->br->vlan_proto, vid);
 	return err;
 }
 
@@ -226,7 +218,7 @@ static int __vlan_add(struct net_bridge_vlan *v, u16 flags)
 		 * This ensures tagged traffic enters the bridge when
 		 * promiscuous mode is disabled by br_manage_promisc().
 		 */
-		err = __vlan_vid_add(dev, br, v->vid, flags);
+		err = __vlan_vid_add(p, v->vid, flags);
 		if (err)
 			goto out;
 
@@ -1011,13 +1003,6 @@ err_vlan_enabled:
  */
 int nbp_vlan_add(struct net_bridge_port *port, u16 vid, u16 flags)
 {
-	struct switchdev_obj_port_vlan v = {
-		.obj.orig_dev = port->dev,
-		.obj.id = SWITCHDEV_OBJ_ID_PORT_VLAN,
-		.flags = flags,
-		.vid_begin = vid,
-		.vid_end = vid,
-	};
 	struct net_bridge_vlan *vlan;
 	int ret;
 
@@ -1026,7 +1011,7 @@ int nbp_vlan_add(struct net_bridge_port *port, u16 vid, u16 flags)
 	vlan = br_vlan_find(nbp_vlan_group(port), vid);
 	if (vlan) {
 		/* Pass the flags to the hardware bridge */
-		ret = switchdev_port_obj_add(port->dev, &v.obj);
+		ret = nbp_switchdev_vlan_add(port, vid, flags);
 		if (ret && ret != -EOPNOTSUPP)
 			return ret;
 		__vlan_add_flags(vlan, flags);
