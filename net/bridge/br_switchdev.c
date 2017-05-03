@@ -112,6 +112,21 @@ bool nbp_switchdev_allowed_egress(const struct net_bridge_port *p,
 	       BR_INPUT_SKB_CB(skb)->offload_fwd_mark != p->offload_fwd_mark;
 }
 
+int nbp_switchdev_fdb_del(const struct net_bridge_port *p,
+			  const unsigned char *addr, u16 vid)
+{
+	struct switchdev_obj_port_fdb fdb = {
+		.obj.orig_dev = p->dev,
+		.obj.id = SWITCHDEV_OBJ_ID_PORT_FDB,
+		.obj.flags = SWITCHDEV_F_DEFER,
+		.vid = vid,
+	};
+
+	ether_addr_copy(fdb.addr, addr);
+
+	return switchdev_port_obj_del(p->dev, &fdb.obj);
+}
+
 int nbp_switchdev_mdb_add(const struct net_bridge_port *p,
 			  const unsigned char *addr, u16 vid, void *priv)
 {

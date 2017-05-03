@@ -24,7 +24,6 @@
 #include <linux/atomic.h>
 #include <asm/unaligned.h>
 #include <linux/if_vlan.h>
-#include <net/switchdev.h>
 #include "br_private.h"
 
 static struct kmem_cache *br_fdb_cache __read_mostly;
@@ -171,17 +170,12 @@ static void fdb_del_hw_addr(struct net_bridge *br, const unsigned char *addr)
 
 static void fdb_del_external_learn(struct net_bridge_fdb_entry *f)
 {
-	struct switchdev_obj_port_fdb fdb = {
-		.obj = {
-			.orig_dev = f->dst->dev,
-			.id = SWITCHDEV_OBJ_ID_PORT_FDB,
-			.flags = SWITCHDEV_F_DEFER,
-		},
-		.vid = f->vlan_id,
-	};
+	int err;
 
-	ether_addr_copy(fdb.addr, f->addr.addr);
-	switchdev_port_obj_del(f->dst->dev, &fdb.obj);
+	err = nbp_switchdev_fdb_del(f->dst, f->addr.addr, f->vlan_id);
+	if (err && err != -EOPNOTSUPP)
+		br_err(f->dst->br, "failed to remove external address on %s (addr:%pM, vlan:%u)",
+		       f->dst->dev->name, f->addr.addr, f->vlan_id);
 }
 
 static void fdb_delete(struct net_bridge *br, struct net_bridge_fdb_entry *f)
