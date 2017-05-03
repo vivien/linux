@@ -1019,7 +1019,6 @@ void __br_set_forward_delay(struct net_bridge *br, unsigned long t);
 int br_set_forward_delay(struct net_bridge *br, unsigned long x);
 int br_set_hello_time(struct net_bridge *br, unsigned long x);
 int br_set_max_age(struct net_bridge *br, unsigned long x);
-int __set_ageing_time(struct net_device *dev, unsigned long t);
 int br_set_ageing_time(struct net_bridge *br, clock_t ageing_time);
 
 
@@ -1099,6 +1098,8 @@ int nbp_switchdev_vlan_del(const struct net_bridge_port *p, u16 vid);
 int br_switchdev_vlan_filtering(const struct net_bridge *br, bool val);
 int nbp_switchdev_vlan_filtering(const struct net_bridge_port *p);
 int nbp_switchdev_stp_state(const struct net_bridge_port *p);
+int br_switchdev_ageing_time(const struct net_bridge *br, unsigned long t);
+int nbp_switchdev_ageing_time(const struct net_bridge_port *p);
 #else
 static inline int br_switchdev_notifier_register(void)
 {
@@ -1174,6 +1175,17 @@ static inline int nbp_switchdev_vlan_filtering(const struct net_bridge_port *p)
 }
 
 static inline int nbp_switchdev_stp_state(const struct net_bridge_port *p)
+{
+	return 0;
+}
+
+static inline int br_switchdev_ageing_time(const struct net_bridge *br,
+					   unsigned long t)
+{
+	return 0;
+}
+
+static inline int nbp_switchdev_ageing_time(const struct net_bridge_port *p)
 {
 	return 0;
 }
