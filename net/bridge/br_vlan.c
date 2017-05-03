@@ -2,7 +2,6 @@
 #include <linux/netdevice.h>
 #include <linux/rtnetlink.h>
 #include <linux/slab.h>
-#include <net/switchdev.h>
 
 #include "br_private.h"
 #include "br_private_tunnel.h"
@@ -663,19 +662,13 @@ void br_recalculate_fwd_mask(struct net_bridge *br)
 
 int __br_vlan_filter_toggle(struct net_bridge *br, unsigned long val)
 {
-	struct switchdev_attr attr = {
-		.orig_dev = br->dev,
-		.id = SWITCHDEV_ATTR_ID_BRIDGE_VLAN_FILTERING,
-		.flags = SWITCHDEV_F_SKIP_EOPNOTSUPP,
-		.u.vlan_filtering = val,
-	};
 	int err;
 
 	if (br->vlan_enabled == val)
 		return 0;
 
-	err = switchdev_port_attr_set(br->dev, &attr);
-	if (err && err != -EOPNOTSUPP)
+	err = br_switchdev_vlan_filtering(br, val);
+	if (err)
 		return err;
 
 	br->vlan_enabled = val;
@@ -943,12 +936,6 @@ err_rhtbl:
 
 int nbp_vlan_init(struct net_bridge_port *p)
 {
-	struct switchdev_attr attr = {
-		.orig_dev = p->br->dev,
-		.id = SWITCHDEV_ATTR_ID_BRIDGE_VLAN_FILTERING,
-		.flags = SWITCHDEV_F_SKIP_EOPNOTSUPP,
-		.u.vlan_filtering = p->br->vlan_enabled,
-	};
 	struct net_bridge_vlan_group *vg;
 	int ret = -ENOMEM;
 
@@ -956,8 +943,8 @@ int nbp_vlan_init(struct net_bridge_port *p)
 	if (!vg)
 		goto out;
 
-	ret = switchdev_port_attr_set(p->dev, &attr);
-	if (ret && ret != -EOPNOTSUPP)
+	ret = nbp_switchdev_vlan_filtering(p);
+	if (ret)
 		goto err_vlan_enabled;
 
 	ret = rhashtable_init(&vg->vlan_hash, &br_vlan_rht_params);
