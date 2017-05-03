@@ -1088,6 +1088,8 @@ void nbp_switchdev_frame_mark(const struct net_bridge_port *p,
 			      struct sk_buff *skb);
 bool nbp_switchdev_allowed_egress(const struct net_bridge_port *p,
 				  const struct sk_buff *skb);
+int nbp_switchdev_fdb_del(const struct net_bridge_port *p,
+			  const unsigned char *addr, u16 vid);
 int nbp_switchdev_mdb_add(const struct net_bridge_port *p,
 			  const unsigned char *addr, u16 vid, void *priv);
 int nbp_switchdev_mdb_del(const struct net_bridge_port *p,
@@ -1118,9 +1120,21 @@ static inline bool nbp_switchdev_allowed_egress(const struct net_bridge_port *p,
 	return true;
 }
 
+static inline int nbp_switchdev_fdb_del(const struct net_bridge_port *p,
+					const unsigned char *addr, u16 vid)
+{
+	return -EOPNOTSUPP;
+}
+
 static inline int nbp_switchdev_mdb_add(const struct net_bridge_port *p,
 					const unsigned char *addr, u16 vid,
 					void *priv)
+{
+	return -EOPNOTSUPP;
+}
+
+int nbp_switchdev_mdb_add(const struct net_bridge_port *p,
+			  const unsigned char *addr, u16 vid, void *priv)
 {
 	return -EOPNOTSUPP;
 }
