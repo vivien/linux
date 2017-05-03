@@ -110,23 +110,16 @@ static void __vlan_del_list(struct net_bridge_vlan *v)
 	list_del_rcu(&v->vlist);
 }
 
-static int __vlan_vid_del(struct net_device *dev, struct net_bridge *br,
-			  u16 vid)
+static int __vlan_vid_del(const struct net_bridge_port *p, u16 vid)
 {
-	struct switchdev_obj_port_vlan v = {
-		.obj.orig_dev = dev,
-		.obj.id = SWITCHDEV_OBJ_ID_PORT_VLAN,
-		.vid_begin = vid,
-		.vid_end = vid,
-	};
 	int err;
 
 	/* Try switchdev op first. In case it is not supported, fallback to
 	 * 8021q del.
 	 */
-	err = switchdev_port_obj_del(dev, &v.obj);
+	err = nbp_switchdev_vlan_del(p, vid);
 	if (err == -EOPNOTSUPP) {
-		vlan_vid_del(dev, br->vlan_proto, vid);
+		vlan_vid_del(p->dev, p->br->vlan_proto, vid);
 		return 0;
 	}
 	return err;
@@ -265,7 +258,7 @@ out_fdb_insert:
 
 out_filt:
 	if (p) {
-		__vlan_vid_del(dev, br, v->vid);
+		__vlan_vid_del(p, v->vid);
 		if (masterv) {
 			br_vlan_put_master(masterv);
 			v->brvlan = NULL;
@@ -292,7 +285,7 @@ static int __vlan_del(struct net_bridge_vlan *v)
 
 	__vlan_delete_pvid(vg, v->vid);
 	if (p) {
-		err = __vlan_vid_del(p->dev, p->br, v->vid);
+		err = __vlan_vid_del(p, v->vid);
 		if (err)
 			goto out;
 	}
