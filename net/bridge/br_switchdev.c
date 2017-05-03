@@ -217,3 +217,20 @@ int nbp_switchdev_vlan_filtering(const struct net_bridge_port *p)
 
 	return 0;
 }
+
+int nbp_switchdev_stp_state(const struct net_bridge_port *p)
+{
+	struct switchdev_attr attr = {
+		.orig_dev = p->dev,
+		.id = SWITCHDEV_ATTR_ID_PORT_STP_STATE,
+		.flags = SWITCHDEV_F_DEFER,
+		.u.stp_state = p->state,
+	};
+	int err;
+
+	err = switchdev_port_attr_set(p->dev, &attr);
+	if (err && err != -EOPNOTSUPP)
+		return err;
+
+	return 0;
+}
