@@ -1100,6 +1100,8 @@ int nbp_switchdev_vlan_filtering(const struct net_bridge_port *p);
 int nbp_switchdev_stp_state(const struct net_bridge_port *p);
 int br_switchdev_ageing_time(const struct net_bridge *br, unsigned long t);
 int nbp_switchdev_ageing_time(const struct net_bridge_port *p);
+int br_switchdev_mc_disabled(struct net_bridge *br, bool val);
+int nbp_switchdev_mc_disabled(struct net_bridge_port *p);
 #else
 static inline int br_switchdev_notifier_register(void)
 {
@@ -1186,6 +1188,16 @@ static inline int br_switchdev_ageing_time(const struct net_bridge *br,
 }
 
 static inline int nbp_switchdev_ageing_time(const struct net_bridge_port *p)
+{
+	return 0;
+}
+
+static inline int br_switchdev_mc_disabled(struct net_bridge *br, bool val)
+{
+	return 0;
+}
+
+static inline int nbp_switchdev_mc_disabled(struct net_bridge_port *p)
 {
 	return 0;
 }
