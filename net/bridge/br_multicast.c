@@ -1003,20 +1003,10 @@ static void br_ip6_multicast_port_query_expired(unsigned long data)
 }
 #endif
 
-static void br_mc_disabled_update(struct net_device *dev, bool value)
-{
-	struct switchdev_attr attr = {
-		.orig_dev = dev,
-		.id = SWITCHDEV_ATTR_ID_BRIDGE_MC_DISABLED,
-		.flags = SWITCHDEV_F_DEFER,
-		.u.mc_disabled = value,
-	};
-
-	switchdev_port_attr_set(dev, &attr);
-}
-
 int br_multicast_add_port(struct net_bridge_port *port)
 {
+	int err;
+
 	port->multicast_router = MDB_RTR_TYPE_TEMP_QUERY;
 
 	setup_timer(&port->multicast_router_timer, br_multicast_router_expired,
@@ -1027,7 +1017,9 @@ int br_multicast_add_port(struct net_bridge_port *port)
 	setup_timer(&port->ip6_own_query.timer,
 		    br_ip6_multicast_port_query_expired, (unsigned long)port);
 #endif
-	br_mc_disabled_update(port->dev, port->br->multicast_disabled);
+	err = nbp_switchdev_mc_disabled(port);
+	if (err)
+		return err;
 
 	port->mcast_stats = netdev_alloc_pcpu_stats(struct bridge_mcast_stats);
 	if (!port->mcast_stats)
@@ -2143,7 +2135,10 @@ int br_multicast_toggle(struct net_bridge *br, unsigned long val)
 	if (br->multicast_disabled == !val)
 		goto unlock;
 
-	br_mc_disabled_update(br->dev, !val);
+	err = br_switchdev_mc_disabled(br, !val);
+	if (err)
+		goto unlock;
+
 	br->multicast_disabled = !val;
 	if (br->multicast_disabled)
 		goto unlock;

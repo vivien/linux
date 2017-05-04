@@ -268,3 +268,37 @@ int nbp_switchdev_ageing_time(const struct net_bridge_port *p)
 
 	return 0;
 }
+
+int br_switchdev_mc_disabled(struct net_bridge *br, bool val)
+{
+	struct switchdev_attr attr = {
+		.orig_dev = br->dev,
+		.id = SWITCHDEV_ATTR_ID_BRIDGE_MC_DISABLED,
+		.flags = SWITCHDEV_F_DEFER,
+		.u.mc_disabled = val,
+	};
+	int err;
+
+	err = switchdev_port_attr_set(br->dev, &attr);
+	if (err && err != -EOPNOTSUPP)
+		return err;
+
+	return 0;
+}
+
+int nbp_switchdev_mc_disabled(struct net_bridge_port *p)
+{
+	struct switchdev_attr attr = {
+		.orig_dev = p->dev,
+		.id = SWITCHDEV_ATTR_ID_BRIDGE_MC_DISABLED,
+		.flags = SWITCHDEV_F_DEFER,
+		.u.mc_disabled = p->br->multicast_disabled,
+	};
+	int err;
+
+	err = switchdev_port_attr_set(p->dev, &attr);
+	if (err && err != -EOPNOTSUPP)
+		return err;
+
+	return 0;
+}
