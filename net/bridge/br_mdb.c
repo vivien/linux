@@ -548,9 +548,6 @@ static int __br_mdb_add(struct net_bridge_port *p, struct br_mdb_entry *entry)
 	struct br_ip ip;
 	int ret;
 
-	if (!netif_running(br->dev) || br->multicast_disabled)
-		return -EINVAL;
-
 	__mdb_entry_to_br_ip(entry, &ip);
 
 	spin_lock_bh(&br->multicast_lock);
@@ -576,6 +573,9 @@ static int br_mdb_add(struct sk_buff *skb, struct nlmsghdr *nlh,
 		return err;
 
 	br = netdev_priv(dev);
+
+	if (!netif_running(br->dev) || br->multicast_disabled)
+		return -EINVAL;
 
 	/* If vlan filtering is enabled and VLAN is not specified
 	 * install mdb entry on all vlans configured on the port.
@@ -614,9 +614,6 @@ static int __br_mdb_del(struct net_bridge *br, struct br_mdb_entry *entry)
 	struct net_bridge_port_group __rcu **pp;
 	struct br_ip ip;
 	int err = -EINVAL;
-
-	if (!netif_running(br->dev) || br->multicast_disabled)
-		return -EINVAL;
 
 	__mdb_entry_to_br_ip(entry, &ip);
 
@@ -671,6 +668,9 @@ static int br_mdb_del(struct sk_buff *skb, struct nlmsghdr *nlh,
 		return err;
 
 	br = netdev_priv(dev);
+
+	if (!netif_running(br->dev) || br->multicast_disabled)
+		return -EINVAL;
 
 	/* If vlan filtering is enabled and VLAN is not specified
 	 * delete mdb entry on all vlans configured on the port.
