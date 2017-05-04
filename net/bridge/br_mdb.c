@@ -542,23 +542,13 @@ static int br_mdb_add_group(struct net_bridge *br, struct net_bridge_port *port,
 	return 0;
 }
 
-static int __br_mdb_add(struct net *net, struct net_bridge *br,
-			struct br_mdb_entry *entry)
+static int __br_mdb_add(struct net_bridge_port *p, struct br_mdb_entry *entry)
 {
+	struct net_bridge *br = p->br;
 	struct br_ip ip;
-	struct net_device *dev;
-	struct net_bridge_port *p;
 	int ret;
 
 	if (!netif_running(br->dev) || br->multicast_disabled)
-		return -EINVAL;
-
-	dev = __dev_get_by_index(net, entry->ifindex);
-	if (!dev)
-		return -ENODEV;
-
-	p = br_port_get_rtnl(dev);
-	if (!p || p->br != br || p->state == BR_STATE_DISABLED)
 		return -EINVAL;
 
 	__mdb_entry_to_br_ip(entry, &ip);
@@ -602,13 +592,13 @@ static int br_mdb_add(struct sk_buff *skb, struct nlmsghdr *nlh,
 	if (br_vlan_enabled(br) && vg && entry->vid == 0) {
 		list_for_each_entry(v, &vg->vlan_list, vlist) {
 			entry->vid = v->vid;
-			err = __br_mdb_add(net, br, entry);
+			err = __br_mdb_add(p, entry);
 			if (err)
 				break;
 			__br_mdb_notify(dev, p, entry, RTM_NEWMDB);
 		}
 	} else {
-		err = __br_mdb_add(net, br, entry);
+		err = __br_mdb_add(p, entry);
 		if (!err)
 			__br_mdb_notify(dev, p, entry, RTM_NEWMDB);
 	}
