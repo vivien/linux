@@ -27,7 +27,6 @@
 #include <linux/inetdevice.h>
 #include <linux/mroute.h>
 #include <net/ip.h>
-#include <net/switchdev.h>
 #if IS_ENABLED(CONFIG_IPV6)
 #include <net/ipv6.h>
 #include <net/mld.h>
@@ -1309,19 +1308,6 @@ br_multicast_update_query_timer(struct net_bridge *br,
 	mod_timer(&query->timer, jiffies + br->multicast_querier_interval);
 }
 
-static void br_port_mc_router_state_change(struct net_bridge_port *p,
-					   bool is_mc_router)
-{
-	struct switchdev_attr attr = {
-		.orig_dev = p->dev,
-		.id = SWITCHDEV_ATTR_ID_PORT_MROUTER,
-		.flags = SWITCHDEV_F_DEFER,
-		.u.mrouter = is_mc_router,
-	};
-
-	switchdev_port_attr_set(p->dev, &attr);
-}
-
 /*
  * Add port to router_list
  *  list is maintained ordered by pointer value
@@ -1347,7 +1333,8 @@ static void br_multicast_add_router(struct net_bridge *br,
 	else
 		hlist_add_head_rcu(&port->rlist, &br->router_list);
 	br_rtr_notify(br->dev, port, RTM_NEWMDB);
-	br_port_mc_router_state_change(port, true);
+	if (nbp_switchdev_mrouter(port, true))
+		br_err(br, "failed to set mrouter on %s\n", p->dev->name);
 }
 
 static void br_multicast_mark_router(struct net_bridge *br,
@@ -2053,7 +2040,8 @@ static void __del_port_router(struct net_bridge_port *p)
 		return;
 	hlist_del_init_rcu(&p->rlist);
 	br_rtr_notify(p->br->dev, p, RTM_DELMDB);
-	br_port_mc_router_state_change(p, false);
+	if (nbp_switchdev_mrouter(p, false))
+		br_err(p->br, "failed to unset mrouter on %s\n", p->dev->name);
 
 	/* don't allow timer refresh */
 	if (p->multicast_router == MDB_RTR_TYPE_TEMP)

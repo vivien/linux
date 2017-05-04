@@ -302,3 +302,20 @@ int nbp_switchdev_mc_disabled(struct net_bridge_port *p)
 
 	return 0;
 }
+
+int nbp_switchdev_mrouter(struct net_bridge_port *p, bool mrouter)
+{
+	struct switchdev_attr attr = {
+		.orig_dev = p->dev,
+		.id = SWITCHDEV_ATTR_ID_PORT_MROUTER,
+		.flags = SWITCHDEV_F_DEFER,
+		.u.mrouter = mrouter,
+	};
+	int err;
+
+	err = switchdev_port_attr_set(p->dev, &attr);
+	if (err && err != -EOPNOTSUPP)
+		return err;
+
+	return 0;
+}
