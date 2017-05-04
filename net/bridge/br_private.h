@@ -1102,6 +1102,7 @@ int br_switchdev_ageing_time(const struct net_bridge *br, unsigned long t);
 int nbp_switchdev_ageing_time(const struct net_bridge_port *p);
 int br_switchdev_mc_disabled(struct net_bridge *br, bool val);
 int nbp_switchdev_mc_disabled(struct net_bridge_port *p);
+int nbp_switchdev_mrouter(struct net_bridge_port *p, bool mrouter);
 #else
 static inline int br_switchdev_notifier_register(void)
 {
@@ -1198,6 +1199,11 @@ static inline int br_switchdev_mc_disabled(struct net_bridge *br, bool val)
 }
 
 static inline int nbp_switchdev_mc_disabled(struct net_bridge_port *p)
+{
+	return 0;
+}
+
+static inline int nbp_switchdev_mrouter(struct net_bridge_port *p, bool mrouter)
 {
 	return 0;
 }
