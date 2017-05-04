@@ -556,6 +556,9 @@ static int __br_mdb_add(struct net_bridge_port *p, struct br_mdb_entry *entry)
 	return ret;
 }
 
+static int __br_mdb_do(struct net_bridge_port *p, struct br_mdb_entry *entry,
+		       int msgtype);
+
 static int br_mdb_add(struct sk_buff *skb, struct nlmsghdr *nlh,
 		      struct netlink_ext_ack *extack)
 {
@@ -592,15 +595,12 @@ static int br_mdb_add(struct sk_buff *skb, struct nlmsghdr *nlh,
 	if (br_vlan_enabled(br) && vg && entry->vid == 0) {
 		list_for_each_entry(v, &vg->vlan_list, vlist) {
 			entry->vid = v->vid;
-			err = __br_mdb_add(p, entry);
+			err = __br_mdb_do(p, entry, RTM_NEWMDB);
 			if (err)
 				break;
-			__br_mdb_notify(dev, p, entry, RTM_NEWMDB);
 		}
 	} else {
-		err = __br_mdb_add(p, entry);
-		if (!err)
-			__br_mdb_notify(dev, p, entry, RTM_NEWMDB);
+		err = __br_mdb_do(p, entry, RTM_NEWMDB);
 	}
 
 	return err;
@@ -651,6 +651,22 @@ unlock:
 	return err;
 }
 
+static int __br_mdb_do(struct net_bridge_port *p, struct br_mdb_entry *entry,
+		       int msgtype)
+{
+	int err = -EINVAL;
+
+	if (msgtype == RTM_NEWMDB)
+		err = __br_mdb_add(p, entry);
+	else if (msgtype == RTM_DELMDB)
+		err = __br_mdb_del(p->br, entry);
+
+	if (!err)
+		__br_mdb_notify(p->br->dev, p, entry, msgtype);
+
+	return err;
+}
+
 static int br_mdb_del(struct sk_buff *skb, struct nlmsghdr *nlh,
 		      struct netlink_ext_ack *extack)
 {
@@ -687,15 +703,12 @@ static int br_mdb_del(struct sk_buff *skb, struct nlmsghdr *nlh,
 	if (br_vlan_enabled(br) && vg && entry->vid == 0) {
 		list_for_each_entry(v, &vg->vlan_list, vlist) {
 			entry->vid = v->vid;
-			err = __br_mdb_del(br, entry);
+			err = __br_mdb_do(p, entry, RTM_DELMDB);
 			if (err)
 				break;
-			__br_mdb_notify(dev, p, entry, RTM_DELMDB);
 		}
 	} else {
-		err = __br_mdb_del(br, entry);
-		if (!err)
-			__br_mdb_notify(dev, p, entry, RTM_DELMDB);
+		err = __br_mdb_do(p, entry, RTM_DELMDB);
 	}
 
 	return err;
