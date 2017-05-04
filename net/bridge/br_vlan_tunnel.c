@@ -14,7 +14,6 @@
 #include <linux/netdevice.h>
 #include <linux/rtnetlink.h>
 #include <linux/slab.h>
-#include <net/switchdev.h>
 #include <net/dst_metadata.h>
 
 #include "br_private.h"
