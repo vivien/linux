@@ -305,7 +305,7 @@ static void __br_mdb_notify(struct net_device *dev, struct net_bridge_port *p,
 	struct net_device *port_dev;
 	struct net *net = dev_net(dev);
 	struct sk_buff *skb;
-	int err = -ENOBUFS;
+	int err;
 
 	port_dev = __dev_get_by_index(net, entry->ifindex);
 	if (entry->addr.proto == htons(ETH_P_IP))
@@ -330,8 +330,10 @@ static void __br_mdb_notify(struct net_device *dev, struct net_bridge_port *p,
 	}
 
 	skb = nlmsg_new(rtnl_mdb_nlmsg_size(), GFP_ATOMIC);
-	if (!skb)
+	if (!skb) {
+		err = -ENOBUFS;
 		goto errout;
+	}
 
 	err = nlmsg_populate_mdb_fill(skb, dev, entry, 0, 0, type, NTF_SELF);
 	if (err < 0) {
