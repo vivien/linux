@@ -142,15 +142,13 @@ static int br_switchdev_event(struct notifier_block *unused,
 		fdb_info = ptr;
 		err = br_fdb_external_learn_add(br, p, fdb_info->addr,
 						fdb_info->vid);
-		if (err)
-			err = notifier_from_errno(err);
+		err = notifier_from_errno(err);
 		break;
 	case SWITCHDEV_FDB_DEL:
 		fdb_info = ptr;
 		err = br_fdb_external_learn_del(br, p, fdb_info->addr,
 						fdb_info->vid);
-		if (err)
-			err = notifier_from_errno(err);
+		err = notifier_from_errno(err);
 		break;
 	}
 
