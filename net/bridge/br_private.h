@@ -1081,6 +1081,8 @@ static inline void br_sysfs_delbr(struct net_device *dev) { return; }
 
 /* br_switchdev.c */
 #ifdef CONFIG_NET_SWITCHDEV
+int br_switchdev_notifier_register(void);
+void br_switchdev_notifier_unregister(void);
 int nbp_switchdev_mark_set(struct net_bridge_port *p);
 void nbp_switchdev_frame_mark(const struct net_bridge_port *p,
 			      struct sk_buff *skb);
@@ -1091,6 +1093,15 @@ int nbp_switchdev_mdb_add(const struct net_bridge_port *p,
 int nbp_switchdev_mdb_del(const struct net_bridge_port *p,
 			  const unsigned char *addr, u16 vid);
 #else
+static inline int br_switchdev_notifier_register(void)
+{
+	return 0;
+}
+
+static inline void br_switchdev_notifier_unregister(void)
+{
+}
+
 static inline int nbp_switchdev_mark_set(struct net_bridge_port *p)
 {
 	return 0;
