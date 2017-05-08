@@ -121,33 +121,37 @@ static struct notifier_block br_device_notifier = {
 	.notifier_call = br_device_event
 };
 
+static int nbp_switchdev_fdb_add_event(struct net_bridge_port *p,
+				       struct switchdev_notifier_fdb_info *info)
+{
+	return br_fdb_external_learn_add(p->br, p, info->addr, info->vid);
+}
+
+static int nbp_switchdev_fdb_del_event(struct net_bridge_port *p,
+				       struct switchdev_notifier_fdb_info *info)
+{
+	return br_fdb_external_learn_del(p->br, p, info->addr, info->vid);
+}
+
 /* called with RTNL */
 static int br_switchdev_event(struct notifier_block *unused,
 			      unsigned long event, void *ptr)
 {
 	struct net_device *dev = switchdev_notifier_info_to_dev(ptr);
 	struct net_bridge_port *p;
-	struct net_bridge *br;
-	struct switchdev_notifier_fdb_info *fdb_info;
 	int err = NOTIFY_DONE;
 
 	p = br_port_get_rtnl(dev);
 	if (!p)
 		goto out;
 
-	br = p->br;
-
 	switch (event) {
 	case SWITCHDEV_FDB_ADD:
-		fdb_info = ptr;
-		err = br_fdb_external_learn_add(br, p, fdb_info->addr,
-						fdb_info->vid);
+		err = nbp_switchdev_fdb_add_event(p, ptr);
 		err = notifier_from_errno(err);
 		break;
 	case SWITCHDEV_FDB_DEL:
-		fdb_info = ptr;
-		err = br_fdb_external_learn_del(br, p, fdb_info->addr,
-						fdb_info->vid);
+		err = nbp_switchdev_fdb_del_event(p, ptr);
 		err = notifier_from_errno(err);
 		break;
 	}
