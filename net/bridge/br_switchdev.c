@@ -55,3 +55,35 @@ bool nbp_switchdev_allowed_egress(const struct net_bridge_port *p,
 	return !skb->offload_fwd_mark ||
 	       BR_INPUT_SKB_CB(skb)->offload_fwd_mark != p->offload_fwd_mark;
 }
+
+int nbp_switchdev_mdb_add(const struct net_bridge_port *p,
+			  const unsigned char *addr, u16 vid, void *priv)
+{
+	struct switchdev_obj_port_mdb mdb = {
+		.obj.orig_dev = p->dev,
+		.obj.id = SWITCHDEV_OBJ_ID_PORT_MDB,
+		.obj.flags = SWITCHDEV_F_DEFER,
+		.obj.complete = br_mdb_complete,
+		.obj.complete_priv = priv,
+		.vid = vid,
+	};
+
+	ether_addr_copy(mdb.addr, addr);
+
+	return switchdev_port_obj_add(p->dev, &mdb.obj);
+}
+
+int nbp_switchdev_mdb_del(const struct net_bridge_port *p,
+			  const unsigned char *addr, u16 vid)
+{
+	struct switchdev_obj_port_mdb mdb = {
+		.obj.orig_dev = p->dev,
+		.obj.id = SWITCHDEV_OBJ_ID_PORT_MDB,
+		.obj.flags = SWITCHDEV_F_DEFER,
+		.vid = vid,
+	};
+
+	ether_addr_copy(mdb.addr, addr);
+
+	return switchdev_port_obj_del(p->dev, &mdb.obj);
+}
