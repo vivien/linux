@@ -613,6 +613,7 @@ br_multicast_new_port_group(struct net_bridge_port *port, struct br_ip *group,
 			    unsigned char flags, const unsigned char *src);
 void br_mdb_init(void);
 void br_mdb_uninit(void);
+void br_mdb_complete(struct net_device *dev, int err, void *priv);
 void br_mdb_notify(struct net_device *dev, struct net_bridge_port *port,
 		   struct br_ip *group, int type, u8 flags);
 void br_rtr_notify(struct net_device *dev, struct net_bridge_port *port,
@@ -1085,6 +1086,10 @@ void nbp_switchdev_frame_mark(const struct net_bridge_port *p,
 			      struct sk_buff *skb);
 bool nbp_switchdev_allowed_egress(const struct net_bridge_port *p,
 				  const struct sk_buff *skb);
+int nbp_switchdev_mdb_add(const struct net_bridge_port *p,
+			  const unsigned char *addr, u16 vid, void *priv);
+int nbp_switchdev_mdb_del(const struct net_bridge_port *p,
+			  const unsigned char *addr, u16 vid);
 #else
 static inline int nbp_switchdev_mark_set(struct net_bridge_port *p)
 {
@@ -1100,6 +1105,19 @@ static inline bool nbp_switchdev_allowed_egress(const struct net_bridge_port *p,
 						const struct sk_buff *skb)
 {
 	return true;
+}
+
+static inline int nbp_switchdev_mdb_add(const struct net_bridge_port *p,
+					const unsigned char *addr, u16 vid,
+					void *priv)
+{
+	return -EOPNOTSUPP;
+}
+
+static inline int nbp_switchdev_mdb_del(const struct net_bridge_port *p,
+					const unsigned char *addr, u16 vid)
+{
+	return -EOPNOTSUPP;
 }
 #endif /* CONFIG_NET_SWITCHDEV */
 

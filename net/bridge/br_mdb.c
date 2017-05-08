@@ -7,7 +7,6 @@
 #include <linux/if_ether.h>
 #include <net/ip.h>
 #include <net/netlink.h>
-#include <net/switchdev.h>
 #if IS_ENABLED(CONFIG_IPV6)
 #include <net/ipv6.h>
 #include <net/addrconf.h>
@@ -261,7 +260,7 @@ struct br_mdb_complete_info {
 	struct br_ip ip;
 };
 
-static void br_mdb_complete(struct net_device *dev, int err, void *priv)
+void br_mdb_complete(struct net_device *dev, int err, void *priv)
 {
 	struct br_mdb_complete_info *data = priv;
 	struct net_bridge_port_group __rcu **pp;
@@ -294,24 +293,17 @@ err:
 static void __br_mdb_notify(struct net_device *dev, struct net_bridge_port *p,
 			    struct br_mdb_entry *entry, int type)
 {
+	unsigned char addr[ETH_ALEN] = { 0 };
 	struct br_mdb_complete_info *complete_info;
-	struct switchdev_obj_port_mdb mdb = {
-		.obj = {
-			.orig_dev = p->dev,
-			.id = SWITCHDEV_OBJ_ID_PORT_MDB,
-			.flags = SWITCHDEV_F_DEFER,
-		},
-		.vid = entry->vid,
-	};
 	struct net *net = dev_net(dev);
 	struct sk_buff *skb;
 	int err;
 
 	if (entry->addr.proto == htons(ETH_P_IP))
-		ip_eth_mc_map(entry->addr.u.ip4, mdb.addr);
+		ip_eth_mc_map(entry->addr.u.ip4, addr);
 #if IS_ENABLED(CONFIG_IPV6)
 	else
-		ipv6_eth_mc_map(&entry->addr.u.ip6, mdb.addr);
+		ipv6_eth_mc_map(&entry->addr.u.ip6, addr);
 #endif
 
 	if (type == RTM_NEWMDB) {
@@ -319,14 +311,13 @@ static void __br_mdb_notify(struct net_device *dev, struct net_bridge_port *p,
 		if (complete_info) {
 			complete_info->port = p;
 			__mdb_entry_to_br_ip(entry, &complete_info->ip);
-			mdb.obj.complete_priv = complete_info;
-			mdb.obj.complete = br_mdb_complete;
-			err = switchdev_port_obj_add(p->dev, &mdb.obj);
+			err = nbp_switchdev_mdb_add(p, addr, entry->vid,
+						    complete_info);
 			if (err && err != -EOPNOTSUPP)
 				goto errout;
 		}
 	} else if (type == RTM_DELMDB) {
-		err = switchdev_port_obj_del(p->dev, &mdb.obj);
+		err = nbp_switchdev_mdb_del(p, addr, entry->vid);
 		if (err && err != -EOPNOTSUPP)
 			goto errout;
 	}
