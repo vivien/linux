@@ -7,6 +7,62 @@
 
 #include "br_private.h"
 
+static int nbp_switchdev_fdb_add_event(struct net_bridge_port *p,
+				       struct switchdev_notifier_fdb_info *info)
+{
+	return br_fdb_external_learn_add(p->br, p, info->addr, info->vid);
+}
+
+static int nbp_switchdev_fdb_del_event(struct net_bridge_port *p,
+				       struct switchdev_notifier_fdb_info *info)
+{
+	return br_fdb_external_learn_del(p->br, p, info->addr, info->vid);
+}
+
+static int br_switchdev_event(struct notifier_block *unused,
+			      unsigned long event, void *ptr)
+{
+	struct net_device *dev = switchdev_notifier_info_to_dev(ptr);
+	struct net_bridge_port *p;
+	int err = NOTIFY_DONE;
+
+	p = br_port_get_rtnl(dev);
+	if (!p)
+		goto out;
+
+	switch (event) {
+	case SWITCHDEV_FDB_ADD:
+		err = nbp_switchdev_fdb_add_event(p, ptr);
+		err = notifier_from_errno(err);
+		break;
+	case SWITCHDEV_FDB_DEL:
+		err = nbp_switchdev_fdb_del_event(p, ptr);
+		err = notifier_from_errno(err);
+		break;
+	}
+
+out:
+	return err;
+}
+
+static struct notifier_block br_switchdev_notifier = {
+	.notifier_call = br_switchdev_event,
+};
+
+int br_switchdev_notifier_register(void)
+{
+	return register_switchdev_notifier(&br_switchdev_notifier);
+}
+
+void br_switchdev_notifier_unregister(void)
+{
+	int err;
+
+	err = unregister_switchdev_notifier(&br_switchdev_notifier);
+	if (err)
+		pr_err("failed to unregister bridge notifier (%d)\n", err);
+}
+
 static int br_switchdev_mark_get(struct net_bridge *br, struct net_device *dev)
 {
 	struct net_bridge_port *p;
