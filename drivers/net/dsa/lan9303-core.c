@@ -794,10 +794,12 @@ static struct dsa_switch_ops lan9303_switch_ops = {
 
 static int lan9303_register_switch(struct lan9303 *chip)
 {
-	chip->ds = dsa_switch_alloc(chip->dev, DSA_MAX_PORTS);
+	chip->ds = devm_kzalloc(chip->dev, sizeof(*chip->ds), GFP_KERNEL);
 	if (!chip->ds)
 		return -ENOMEM;
 
+	chip->ds->num_ports = DSA_MAX_PORTS;
+	chip->ds->dev = chip->dev;
 	chip->ds->priv = chip;
 	chip->ds->ops = &lan9303_switch_ops;
 	chip->ds->phys_mii_mask = chip->phy_addr_sel_strap ? 0xe : 0x7;

@@ -780,35 +780,11 @@ out:
 	return err;
 }
 
-struct dsa_switch *dsa_switch_alloc(struct device *dev, size_t n)
-{
-	size_t size = sizeof(struct dsa_device) + n * sizeof(struct dsa_port);
-	struct dsa_switch *ds;
-	int i;
-
-	ds = devm_kzalloc(dev, sizeof(struct dsa_switch), GFP_KERNEL);
-	if (!ds)
-		return NULL;
-
-	ds->dev = dev;
-	ds->num_ports = n;
-
-	ds->dd = devm_kzalloc(dev, size, GFP_KERNEL);
-	if (!ds->dd)
-		return NULL;
-
-	for (i = 0; i < ds->num_ports; ++i) {
-		ds->dd->dp[i].index = i;
-		ds->dd->dp[i].ds = ds;
-	}
-
-	return ds;
-}
-EXPORT_SYMBOL_GPL(dsa_switch_alloc);
-
 int dsa_register_switch(struct dsa_switch *ds)
 {
+	size_t s;
 	int err;
+	int i;
 
 	if (!ds->dev) {
 		pr_err("DSA: missing switch device\n");
@@ -823,6 +799,16 @@ int dsa_register_switch(struct dsa_switch *ds)
 	if (!ds->num_ports) {
 		pr_err("DSA: number of ports cannot be zero\n");
 		return -EINVAL;
+	}
+
+	s = sizeof(struct dsa_device) + ds->num_ports * sizeof(struct dsa_port);
+	ds->dd = devm_kzalloc(dev, s, GFP_KERNEL);
+	if (!ds->dd)
+		return -ENOMEM;
+
+	for (i = 0; i < ds->num_ports; ++i) {
+		ds->dd->dp[i].index = i;
+		ds->dd->dp[i].ds = ds;
 	}
 
 	mutex_lock(&dsa2_mutex);

@@ -1884,7 +1884,7 @@ struct b53_device *b53_switch_alloc(struct device *base,
 	struct dsa_switch *ds;
 	struct b53_device *dev;
 
-	ds = dsa_switch_alloc(base, DSA_MAX_PORTS);
+	ds = devm_kzalloc(base, sizeof(*ds), GFP_KERNEL);
 	if (!ds)
 		return NULL;
 
@@ -1892,7 +1892,9 @@ struct b53_device *b53_switch_alloc(struct device *base,
 	if (!dev)
 		return NULL;
 
+	ds->num_ports = DSA_MAX_PORTS;
 	ds->priv = dev;
+	ds->dev = base;
 	dev->dev = base;
 
 	dev->ds = ds;

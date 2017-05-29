@@ -250,7 +250,7 @@ static int dsa_loop_drv_probe(struct mdio_device *mdiodev)
 	dev_info(&mdiodev->dev, "%s: 0x%0x\n",
 		 pdata->name, pdata->enabled_ports);
 
-	ds = dsa_switch_alloc(&mdiodev->dev, DSA_MAX_PORTS);
+	ds = devm_kzalloc(&mdiodev->dev, sizeof(*ds), GFP_KERNEL);
 	if (!ds)
 		return -ENOMEM;
 
@@ -264,6 +264,7 @@ static int dsa_loop_drv_probe(struct mdio_device *mdiodev)
 
 	pdata->cd.netdev[DSA_LOOP_CPU_PORT] = &ps->netdev->dev;
 
+	ds->num_ports = DSA_MAX_PORTS;
 	ds->dev = &mdiodev->dev;
 	ds->ops = &dsa_loop_driver;
 	ds->priv = ps;
