@@ -887,7 +887,7 @@ static u16 mv88e6xxx_port_vlan(struct mv88e6xxx_chip *chip, int dev, int port)
 	if (dsa_is_cpu_port(ds, port) || dsa_is_dsa_port(ds, port))
 		return mv88e6xxx_port_mask(chip);
 
-	br = ds->ports[port].bridge_dev;
+	br = dsa_bridge_dev(ds, port);
 	pvlan = 0;
 
 	/* Frames from user ports can egress any local DSA links and CPU ports,
@@ -896,7 +896,7 @@ static u16 mv88e6xxx_port_vlan(struct mv88e6xxx_chip *chip, int dev, int port)
 	for (i = 0; i < mv88e6xxx_num_ports(chip); ++i)
 		if (dsa_is_cpu_port(chip->ds, i) ||
 		    dsa_is_dsa_port(chip->ds, i) ||
-		    (br && chip->ds->ports[i].bridge_dev == br))
+		    (br && dsa_bridge_dev(chip->ds, i) == br))
 			pvlan |= BIT(i);
 
 	return pvlan;
@@ -1208,17 +1208,16 @@ static int mv88e6xxx_port_check_hw_vlan(struct dsa_switch *ds, int port,
 			    GLOBAL_VTU_DATA_MEMBER_TAG_NON_MEMBER)
 				continue;
 
-			if (ds->ports[i].bridge_dev ==
-			    ds->ports[port].bridge_dev)
+			if (dsa_bridge_dev(ds, i) == dsa_bridge_dev(ds, port))
 				break; /* same bridge, check next VLAN */
 
-			if (!ds->ports[i].bridge_dev)
+			if (!dsa_bridge_dev(ds, i))
 				continue;
 
 			netdev_warn(ds->ports[port].netdev,
 				    "hardware VLAN %d already used by %s\n",
 				    vlan.vid,
-				    netdev_name(ds->ports[i].bridge_dev));
+				    netdev_name(dsa_bridge_dev(ds, i)));
 			err = -EOPNOTSUPP;
 			goto unlock;
 		}
@@ -1585,7 +1584,7 @@ static int mv88e6xxx_bridge_map(struct mv88e6xxx_chip *chip,
 
 	/* Remap the Port VLAN of each local bridge group member */
 	for (port = 0; port < mv88e6xxx_num_ports(chip); ++port) {
-		if (chip->ds->ports[port].bridge_dev == br) {
+		if (dsa_bridge_dev(chip->ds, port) == br) {
 			err = mv88e6xxx_port_vlan_map(chip, port);
 			if (err)
 				return err;
@@ -1602,7 +1601,7 @@ static int mv88e6xxx_bridge_map(struct mv88e6xxx_chip *chip,
 			break;
 
 		for (port = 0; port < ds->num_ports; ++port) {
-			if (ds->ports[port].bridge_dev == br) {
+			if (dsa_bridge_dev(ds, port) == br) {
 				err = mv88e6xxx_pvt_map(chip, dev, port);
 				if (err)
 					return err;

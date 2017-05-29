@@ -752,7 +752,7 @@ qca8k_port_bridge_join(struct dsa_switch *ds, int port, struct net_device *br)
 	int i;
 
 	for (i = 1; i < QCA8K_NUM_PORTS; i++) {
-		if (ds->ports[i].bridge_dev != br)
+		if (dsa_bridge_dev(ds, i) != br)
 			continue;
 		/* Add this port to the portvlan mask of the other ports
 		 * in the bridge
@@ -777,7 +777,7 @@ qca8k_port_bridge_leave(struct dsa_switch *ds, int port, struct net_device *br)
 	int i;
 
 	for (i = 1; i < QCA8K_NUM_PORTS; i++) {
-		if (ds->ports[i].bridge_dev != br)
+		if (dsa_bridge_dev(ds, i) != br)
 			continue;
 		/* Remove this port to the portvlan mask of the other ports
 		 * in the bridge
