@@ -35,6 +35,14 @@ struct net_device *dsa_bridge_dev(struct dsa_switch *ds, int p)
 	return ds->ports[p].bridge_dev;
 }
 
+struct net_device *dsa_netdev(struct dsa_switch *ds, int p)
+{
+	if (p >= ds->num_ports)
+		return NULL;
+
+	return ds->ports[p].netdev;
+}
+
 bool dsa_is_cpu_port(struct dsa_switch *ds, int p)
 {
 	if (p >= ds->num_ports)

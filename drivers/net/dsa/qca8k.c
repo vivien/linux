@@ -700,7 +700,7 @@ qca8k_get_eee(struct dsa_switch *ds, int port,
 {
 	struct qca8k_priv *priv = (struct qca8k_priv *)ds->priv;
 	struct ethtool_eee *p = &priv->port_sts[port].eee;
-	struct net_device *netdev = ds->ports[port].netdev;
+	struct net_device *netdev = dsa_netdev(ds, port);
 	int ret;
 
 	ret = phy_ethtool_get_eee(netdev->phydev, p);

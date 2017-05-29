@@ -489,7 +489,7 @@ static int mv88e6xxx_port_setup_mac(struct mv88e6xxx_chip *chip, int port,
 	err = 0;
 restore_link:
 	if (chip->info->ops->port_set_link(chip, port, link))
-		netdev_err(chip->ds->ports[port].netdev,
+		netdev_err(dsa_netdev(chip->ds, port),
 			   "failed to restore MAC's link\n");
 
 	return err;
@@ -514,7 +514,7 @@ static void mv88e6xxx_adjust_link(struct dsa_switch *ds, int port,
 	mutex_unlock(&chip->reg_lock);
 
 	if (err && err != -EOPNOTSUPP)
-		netdev_err(ds->ports[port].netdev, "failed to configure MAC\n");
+		netdev_err(dsa_netdev(ds, port), "failed to configure MAC\n");
 }
 
 static int mv88e6xxx_stats_snapshot(struct mv88e6xxx_chip *chip, int port)
@@ -941,7 +941,7 @@ static void mv88e6xxx_port_stp_state_set(struct dsa_switch *ds, int port,
 	mutex_unlock(&chip->reg_lock);
 
 	if (err)
-		netdev_err(ds->ports[port].netdev, "failed to update state\n");
+		netdev_err(dsa_netdev(ds, port), "failed to update state\n");
 }
 
 static int mv88e6xxx_atu_setup(struct mv88e6xxx_chip *chip)
@@ -1009,7 +1009,7 @@ static void mv88e6xxx_port_fast_age(struct dsa_switch *ds, int port)
 	mutex_unlock(&chip->reg_lock);
 
 	if (err)
-		netdev_err(ds->ports[port].netdev, "failed to flush ATU\n");
+		netdev_err(dsa_netdev(ds, port), "failed to flush ATU\n");
 }
 
 static int mv88e6xxx_vtu_setup(struct mv88e6xxx_chip *chip)
@@ -1201,7 +1201,7 @@ static int mv88e6xxx_port_check_hw_vlan(struct dsa_switch *ds, int port,
 			if (dsa_is_dsa_port(ds, i) || dsa_is_cpu_port(ds, i))
 				continue;
 
-			if (!ds->ports[port].netdev)
+			if (!dsa_netdev(ds, port))
 				continue;
 
 			if (vlan.member[i] ==
@@ -1214,7 +1214,7 @@ static int mv88e6xxx_port_check_hw_vlan(struct dsa_switch *ds, int port,
 			if (!dsa_bridge_dev(ds, i))
 				continue;
 
-			netdev_warn(ds->ports[port].netdev,
+			netdev_warn(dsa_netdev(ds, port),
 				    "hardware VLAN %d already used by %s\n",
 				    vlan.vid,
 				    netdev_name(dsa_bridge_dev(ds, i)));
@@ -1305,12 +1305,12 @@ static void mv88e6xxx_port_vlan_add(struct dsa_switch *ds, int port,
 
 	for (vid = vlan->vid_begin; vid <= vlan->vid_end; ++vid)
 		if (_mv88e6xxx_port_vlan_add(chip, port, vid, untagged))
-			netdev_err(ds->ports[port].netdev,
+			netdev_err(dsa_netdev(ds, port),
 				   "failed to add VLAN %d%c\n",
 				   vid, untagged ? 'u' : 't');
 
 	if (pvid && mv88e6xxx_port_set_pvid(chip, port, vlan->vid_end))
-		netdev_err(ds->ports[port].netdev, "failed to set PVID %d\n",
+		netdev_err(dsa_netdev(ds, port), "failed to set PVID %d\n",
 			   vlan->vid_end);
 
 	mutex_unlock(&chip->reg_lock);
@@ -1449,7 +1449,7 @@ static void mv88e6xxx_port_fdb_add(struct dsa_switch *ds, int port,
 	mutex_lock(&chip->reg_lock);
 	if (mv88e6xxx_port_db_load_purge(chip, port, fdb->addr, fdb->vid,
 					 GLOBAL_ATU_DATA_STATE_UC_STATIC))
-		netdev_err(ds->ports[port].netdev, "failed to load unicast MAC address\n");
+		netdev_err(dsa_netdev(ds, port), "failed to load unicast MAC address\n");
 	mutex_unlock(&chip->reg_lock);
 }
 
@@ -3791,7 +3791,7 @@ static void mv88e6xxx_port_mdb_add(struct dsa_switch *ds, int port,
 	mutex_lock(&chip->reg_lock);
 	if (mv88e6xxx_port_db_load_purge(chip, port, mdb->addr, mdb->vid,
 					 GLOBAL_ATU_DATA_STATE_MC_STATIC))
-		netdev_err(ds->ports[port].netdev, "failed to load multicast MAC address\n");
+		netdev_err(dsa_netdev(ds, port), "failed to load multicast MAC address\n");
 	mutex_unlock(&chip->reg_lock);
 }
 

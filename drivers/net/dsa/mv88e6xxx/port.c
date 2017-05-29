@@ -75,7 +75,7 @@ static int mv88e6xxx_port_set_rgmii_delay(struct mv88e6xxx_chip *chip, int port,
 	if (err)
 		return err;
 
-	netdev_dbg(chip->ds->ports[port].netdev, "delay RXCLK %s, TXCLK %s\n",
+	netdev_dbg(dsa_netdev(chip->ds, port), "delay RXCLK %s, TXCLK %s\n",
 		   reg & PORT_PCS_CTRL_RGMII_DELAY_RXCLK ? "yes" : "no",
 		   reg & PORT_PCS_CTRL_RGMII_DELAY_TXCLK ? "yes" : "no");
 
@@ -129,7 +129,7 @@ int mv88e6xxx_port_set_link(struct mv88e6xxx_chip *chip, int port, int link)
 	if (err)
 		return err;
 
-	netdev_dbg(chip->ds->ports[port].netdev, "%s link %s\n",
+	netdev_dbg(dsa_netdev(chip->ds, port), "%s link %s\n",
 		   reg & PORT_PCS_CTRL_FORCE_LINK ? "Force" : "Unforce",
 		   reg & PORT_PCS_CTRL_LINK_UP ? "up" : "down");
 
@@ -165,7 +165,7 @@ int mv88e6xxx_port_set_duplex(struct mv88e6xxx_chip *chip, int port, int dup)
 	if (err)
 		return err;
 
-	netdev_dbg(chip->ds->ports[port].netdev, "%s %s duplex\n",
+	netdev_dbg(dsa_netdev(chip->ds, port), "%s %s duplex\n",
 		   reg & PORT_PCS_CTRL_FORCE_DUPLEX ? "Force" : "Unforce",
 		   reg & PORT_PCS_CTRL_DUPLEX_FULL ? "full" : "half");
 
@@ -225,10 +225,10 @@ static int mv88e6xxx_port_set_speed(struct mv88e6xxx_chip *chip, int port,
 		return err;
 
 	if (speed)
-		netdev_dbg(chip->ds->ports[port].netdev,
+		netdev_dbg(dsa_netdev(chip->ds, port),
 			   "Speed set to %d Mbps\n", speed);
 	else
-		netdev_dbg(chip->ds->ports[port].netdev, "Speed unforced\n");
+		netdev_dbg(dsa_netdev(chip->ds, port), "Speed unforced\n");
 
 	return 0;
 }
@@ -418,7 +418,7 @@ int mv88e6xxx_port_set_state(struct mv88e6xxx_chip *chip, int port, u8 state)
 	if (err)
 		return err;
 
-	netdev_dbg(chip->ds->ports[port].netdev, "PortState set to %s\n",
+	netdev_dbg(dsa_netdev(chip->ds, port), "PortState set to %s\n",
 		   mv88e6xxx_port_state_names[state]);
 
 	return 0;
@@ -579,7 +579,7 @@ int mv88e6xxx_port_set_vlan_map(struct mv88e6xxx_chip *chip, int port, u16 map)
 	if (err)
 		return err;
 
-	netdev_dbg(chip->ds->ports[port].netdev, "VLANTable set to %.3x\n",
+	netdev_dbg(dsa_netdev(chip->ds, port), "VLANTable set to %.3x\n",
 		   map);
 
 	return 0;
@@ -645,7 +645,7 @@ int mv88e6xxx_port_set_fid(struct mv88e6xxx_chip *chip, int port, u16 fid)
 			return err;
 	}
 
-	netdev_dbg(chip->ds->ports[port].netdev, "FID set to %u\n", fid);
+	netdev_dbg(dsa_netdev(chip->ds, port), "FID set to %u\n", fid);
 
 	return 0;
 }
@@ -682,7 +682,7 @@ int mv88e6xxx_port_set_pvid(struct mv88e6xxx_chip *chip, int port, u16 pvid)
 	if (err)
 		return err;
 
-	netdev_dbg(chip->ds->ports[port].netdev, "DefaultVID set to %u\n",
+	netdev_dbg(dsa_netdev(chip->ds, port), "DefaultVID set to %u\n",
 		   pvid);
 
 	return 0;
@@ -760,7 +760,7 @@ int mv88e6xxx_port_set_8021q_mode(struct mv88e6xxx_chip *chip, int port,
 	if (err)
 		return err;
 
-	netdev_dbg(chip->ds->ports[port].netdev, "802.1QMode set to %s\n",
+	netdev_dbg(dsa_netdev(chip->ds, port), "802.1QMode set to %s\n",
 		   mv88e6xxx_port_8021q_mode_names[mode]);
 
 	return 0;

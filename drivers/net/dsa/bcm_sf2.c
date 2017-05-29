@@ -733,7 +733,7 @@ static void bcm_sf2_sw_fixed_link_update(struct dsa_switch *ds, int port,
 		 * state machine and make it go in PHY_FORCING state instead.
 		 */
 		if (!status->link)
-			netif_carrier_off(ds->ports[port].netdev);
+			netif_carrier_off(dsa_netdev(ds, port));
 		status->duplex = 1;
 	} else {
 		status->link = 1;

@@ -458,6 +458,7 @@ static inline int dsa_switch_resume(struct dsa_switch *ds)
 #endif /* CONFIG_PM_SLEEP */
 
 struct net_device *dsa_bridge_dev(struct dsa_switch *ds, int p);
+struct net_device *dsa_netdev(struct dsa_switch *ds, int p);
 bool dsa_is_cpu_port(struct dsa_switch *ds, int p);
 bool dsa_is_dsa_port(struct dsa_switch *ds, int p);
 bool dsa_is_normal_port(struct dsa_switch *ds, int p);
