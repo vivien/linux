@@ -810,6 +810,21 @@ int dsa_register_switch(struct dsa_switch *ds)
 {
 	int err;
 
+	if (!ds->dev) {
+		pr_err("DSA: missing switch device\n");
+		return -EINVAL;
+	}
+
+	if (!ds->ops) {
+		pr_err("DSA: missing switch operations\n");
+		return -EINVAL;
+	}
+
+	if (!ds->num_ports) {
+		pr_err("DSA: number of ports cannot be zero\n");
+		return -EINVAL;
+	}
+
 	mutex_lock(&dsa2_mutex);
 	err = _dsa_register_switch(ds);
 	mutex_unlock(&dsa2_mutex);
