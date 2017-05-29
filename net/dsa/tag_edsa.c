@@ -118,7 +118,7 @@ static struct sk_buff *edsa_rcv(struct sk_buff *skb, struct net_device *dev,
 	if (!ds)
 		return NULL;
 
-	if (source_port >= ds->num_ports || !ds->ports[source_port].netdev)
+	if (source_port >= ds->num_ports || !ds->dd->dp[source_port].netdev)
 		return NULL;
 
 	/*
@@ -173,7 +173,7 @@ static struct sk_buff *edsa_rcv(struct sk_buff *skb, struct net_device *dev,
 			2 * ETH_ALEN);
 	}
 
-	skb->dev = ds->ports[source_port].netdev;
+	skb->dev = ds->dd->dp[source_port].netdev;
 
 	return skb;
 }

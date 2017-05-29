@@ -101,11 +101,11 @@ static struct sk_buff *qca_tag_rcv(struct sk_buff *skb, struct net_device *dev,
 
 	/* Get source port information */
 	port = (hdr & QCA_HDR_RECV_SOURCE_PORT_MASK);
-	if (!ds->ports[port].netdev)
+	if (!ds->dd->dp[port].netdev)
 		return NULL;
 
 	/* Update skb & forward the frame accordingly */
-	skb->dev = ds->ports[port].netdev;
+	skb->dev = ds->dd->dp[port].netdev;
 
 	return skb;
 }

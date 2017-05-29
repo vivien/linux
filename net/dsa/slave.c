@@ -1165,11 +1165,11 @@ int dsa_slave_create(struct dsa_switch *ds, struct device *parent,
 				 NULL);
 
 	SET_NETDEV_DEV(slave_dev, parent);
-	slave_dev->dev.of_node = ds->ports[port].dn;
+	slave_dev->dev.of_node = ds->dd->dp[port].dn;
 	slave_dev->vlan_features = master->vlan_features;
 
 	p = netdev_priv(slave_dev);
-	p->dp = &ds->ports[port];
+	p->dp = &ds->dd->dp[port];
 	INIT_LIST_HEAD(&p->mall_tc_list);
 	p->xmit = dst->tag_ops->xmit;
 
@@ -1177,12 +1177,12 @@ int dsa_slave_create(struct dsa_switch *ds, struct device *parent,
 	p->old_link = -1;
 	p->old_duplex = -1;
 
-	ds->ports[port].netdev = slave_dev;
+	ds->dd->dp[port].netdev = slave_dev;
 	ret = register_netdev(slave_dev);
 	if (ret) {
 		netdev_err(master, "error %d registering interface %s\n",
 			   ret, slave_dev->name);
-		ds->ports[port].netdev = NULL;
+		ds->dd->dp[port].netdev = NULL;
 		free_netdev(slave_dev);
 		return ret;
 	}

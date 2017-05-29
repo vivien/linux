@@ -65,11 +65,28 @@ struct dsa_notifier_vlan_info {
 	int port;
 };
 
+struct dsa_port {
+	struct dsa_switch	*ds;
+	unsigned int		index;
+	const char		*name;
+	struct net_device	*netdev;
+	struct device_node	*dn;
+	unsigned int		ageing_time;
+	u8			stp_state;
+	struct net_device	*bridge_dev;
+	struct devlink_port	devlink_port;
+};
+
 struct dsa_device_ops {
 	struct sk_buff *(*xmit)(struct sk_buff *skb, struct net_device *dev);
 	struct sk_buff *(*rcv)(struct sk_buff *skb, struct net_device *dev,
 			       struct packet_type *pt,
 			       struct net_device *orig_dev);
+};
+
+struct dsa_device {
+	/* Dynamically allocated ports, keep last */
+	struct dsa_port		dp[];
 };
 
 struct dsa_slave_priv {

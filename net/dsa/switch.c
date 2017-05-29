@@ -22,7 +22,7 @@ static unsigned int dsa_switch_fastest_ageing_time(struct dsa_switch *ds,
 	int i;
 
 	for (i = 0; i < ds->num_ports; ++i) {
-		struct dsa_port *dp = &ds->ports[i];
+		struct dsa_port *dp = &ds->dd->dp[i];
 
 		if (dp->ageing_time && dp->ageing_time < ageing_time)
 			ageing_time = dp->ageing_time;

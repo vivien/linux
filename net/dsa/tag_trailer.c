@@ -76,12 +76,12 @@ static struct sk_buff *trailer_rcv(struct sk_buff *skb, struct net_device *dev,
 		return NULL;
 
 	source_port = trailer[1] & 7;
-	if (source_port >= ds->num_ports || !ds->ports[source_port].netdev)
+	if (source_port >= ds->num_ports || !ds->dd->dp[source_port].netdev)
 		return NULL;
 
 	pskb_trim_rcsum(skb, skb->len - 4);
 
-	skb->dev = ds->ports[source_port].netdev;
+	skb->dev = ds->dd->dp[source_port].netdev;
 
 	return skb;
 }

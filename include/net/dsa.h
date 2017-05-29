@@ -22,6 +22,8 @@
 #include <net/devlink.h>
 #include <net/switchdev.h>
 
+struct dsa_device;
+struct dsa_port;
 struct tc_action;
 struct phy_device;
 struct fixed_phy_status;
@@ -178,19 +180,6 @@ struct dsa_mall_tc_entry {
 	};
 };
 
-
-struct dsa_port {
-	struct dsa_switch	*ds;
-	unsigned int		index;
-	const char		*name;
-	struct net_device	*netdev;
-	struct device_node	*dn;
-	unsigned int		ageing_time;
-	u8			stp_state;
-	struct net_device	*bridge_dev;
-	struct devlink_port	devlink_port;
-};
-
 struct dsa_switch {
 	struct device *dev;
 
@@ -247,9 +236,10 @@ struct dsa_switch {
 	/* devlink used to represent this switch device */
 	struct devlink		*devlink;
 
-	/* Dynamically allocated ports, keep last */
 	size_t num_ports;
-	struct dsa_port ports[];
+
+	/* Opaque internal state holder */
+	struct dsa_device *dd;
 };
 
 struct dsa_switch_ops {

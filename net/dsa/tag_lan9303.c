@@ -109,7 +109,7 @@ static struct sk_buff *lan9303_rcv(struct sk_buff *skb, struct net_device *dev,
 		return NULL;
 	}
 
-	if (!ds->ports[source_port].netdev) {
+	if (!ds->dd->dp[source_port].netdev) {
 		dev_warn_ratelimited(&dev->dev, "Dropping packet due to invalid netdev or device\n");
 		return NULL;
 	}
@@ -122,7 +122,7 @@ static struct sk_buff *lan9303_rcv(struct sk_buff *skb, struct net_device *dev,
 		2 * ETH_ALEN);
 
 	/* forward the packet to the dedicated interface */
-	skb->dev = ds->ports[source_port].netdev;
+	skb->dev = ds->dd->dp[source_port].netdev;
 
 	return skb;
 }

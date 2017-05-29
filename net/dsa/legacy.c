@@ -87,7 +87,7 @@ static int dsa_cpu_dsa_setups(struct dsa_switch *ds, struct device *dev)
 		if (!(dsa_is_cpu_port(ds, port) || dsa_is_dsa_port(ds, port)))
 			continue;
 
-		dport = &ds->ports[port];
+		dport = &ds->dd->dp[port];
 		ret = dsa_cpu_dsa_setup(ds, dev, dport, port);
 		if (ret)
 			return ret;
@@ -120,7 +120,7 @@ static int dsa_switch_setup_one(struct dsa_switch *ds, struct device *parent)
 					   "multiple cpu ports?!\n");
 				return -EINVAL;
 			}
-			dst->cpu_dp = &ds->ports[i];
+			dst->cpu_dp = &ds->dd->dp[i];
 			ds->cpu_port_mask |= 1 << i;
 		} else if (!strcmp(name, "dsa")) {
 			ds->dsa_port_mask |= 1 << i;
@@ -188,7 +188,7 @@ static int dsa_switch_setup_one(struct dsa_switch *ds, struct device *parent)
 	 * Create network devices for physical switch ports.
 	 */
 	for (i = 0; i < ds->num_ports; i++) {
-		ds->ports[i].dn = cd->port_dn[i];
+		ds->dd->dp[i].dn = cd->port_dn[i];
 
 		if (!(ds->enabled_port_mask & (1 << i)))
 			continue;
@@ -265,17 +265,17 @@ static void dsa_switch_destroy(struct dsa_switch *ds)
 		if (!(ds->enabled_port_mask & (1 << port)))
 			continue;
 
-		if (!ds->ports[port].netdev)
+		if (!ds->dd->dp[port].netdev)
 			continue;
 
-		dsa_slave_destroy(ds->ports[port].netdev);
+		dsa_slave_destroy(ds->dd->dp[port].netdev);
 	}
 
 	/* Disable configuration of the CPU and DSA ports */
 	for (port = 0; port < ds->num_ports; port++) {
 		if (!(dsa_is_cpu_port(ds, port) || dsa_is_dsa_port(ds, port)))
 			continue;
-		dsa_cpu_dsa_destroy(&ds->ports[port]);
+		dsa_cpu_dsa_destroy(&ds->dd->dp[port]);
 
 		/* Clearing a bit which is not set does no harm */
 		ds->cpu_port_mask |= ~(1 << port);

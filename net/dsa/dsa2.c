@@ -112,7 +112,7 @@ static bool dsa_ds_find_port_dn(struct dsa_switch *ds,
 	u32 index;
 
 	for (index = 0; index < ds->num_ports; index++)
-		if (ds->ports[index].dn == port)
+		if (ds->dd->dp[index].dn == port)
 			return true;
 	return false;
 }
@@ -173,7 +173,7 @@ static int dsa_ds_complete(struct dsa_switch_tree *dst, struct dsa_switch *ds)
 	int err;
 
 	for (index = 0; index < ds->num_ports; index++) {
-		port = &ds->ports[index];
+		port = &ds->dd->dp[index];
 		if (!dsa_port_is_valid(port))
 			continue;
 
@@ -226,18 +226,17 @@ static int dsa_dsa_port_apply(struct dsa_port *port, u32 index,
 		return err;
 	}
 
-	memset(&ds->ports[index].devlink_port, 0,
-	       sizeof(ds->ports[index].devlink_port));
+	memset(&ds->dd->dp[index].devlink_port, 0,
+	       sizeof(ds->dd->dp[index].devlink_port));
 
 	return devlink_port_register(ds->devlink,
-				     &ds->ports[index].devlink_port,
-				     index);
+				     &ds->dd->dp[index].devlink_port, index);
 }
 
 static void dsa_dsa_port_unapply(struct dsa_port *port, u32 index,
 				 struct dsa_switch *ds)
 {
-	devlink_port_unregister(&ds->ports[index].devlink_port);
+	devlink_port_unregister(&ds->dd->dp[index].devlink_port);
 	dsa_cpu_dsa_destroy(port);
 }
 
@@ -255,17 +254,17 @@ static int dsa_cpu_port_apply(struct dsa_port *port, u32 index,
 
 	ds->cpu_port_mask |= BIT(index);
 
-	memset(&ds->ports[index].devlink_port, 0,
-	       sizeof(ds->ports[index].devlink_port));
-	err = devlink_port_register(ds->devlink, &ds->ports[index].devlink_port,
-				    index);
+	memset(&ds->dd->dp[index].devlink_port, 0,
+	       sizeof(ds->dd->dp[index].devlink_port));
+	err = devlink_port_register(ds->devlink,
+				    &ds->dd->dp[index].devlink_port, index);
 	return err;
 }
 
 static void dsa_cpu_port_unapply(struct dsa_port *port, u32 index,
 				 struct dsa_switch *ds)
 {
-	devlink_port_unregister(&ds->ports[index].devlink_port);
+	devlink_port_unregister(&ds->dd->dp[index].devlink_port);
 	dsa_cpu_dsa_destroy(port);
 	ds->cpu_port_mask &= ~BIT(index);
 
@@ -286,19 +285,19 @@ static int dsa_user_port_apply(struct dsa_port *port, u32 index,
 	if (err) {
 		dev_warn(ds->dev, "Failed to create slave %d: %d\n",
 			 index, err);
-		ds->ports[index].netdev = NULL;
+		ds->dd->dp[index].netdev = NULL;
 		return err;
 	}
 
-	memset(&ds->ports[index].devlink_port, 0,
-	       sizeof(ds->ports[index].devlink_port));
-	err = devlink_port_register(ds->devlink, &ds->ports[index].devlink_port,
-				    index);
+	memset(&ds->dd->dp[index].devlink_port, 0,
+	       sizeof(ds->dd->dp[index].devlink_port));
+	err = devlink_port_register(ds->devlink,
+				    &ds->dd->dp[index].devlink_port, index);
 	if (err)
 		return err;
 
-	devlink_port_type_eth_set(&ds->ports[index].devlink_port,
-				  ds->ports[index].netdev);
+	devlink_port_type_eth_set(&ds->dd->dp[index].devlink_port,
+				  ds->dd->dp[index].netdev);
 
 	return 0;
 }
@@ -306,10 +305,10 @@ static int dsa_user_port_apply(struct dsa_port *port, u32 index,
 static void dsa_user_port_unapply(struct dsa_port *port, u32 index,
 				  struct dsa_switch *ds)
 {
-	devlink_port_unregister(&ds->ports[index].devlink_port);
-	if (ds->ports[index].netdev) {
-		dsa_slave_destroy(ds->ports[index].netdev);
-		ds->ports[index].netdev = NULL;
+	devlink_port_unregister(&ds->dd->dp[index].devlink_port);
+	if (ds->dd->dp[index].netdev) {
+		dsa_slave_destroy(ds->dd->dp[index].netdev);
+		ds->dd->dp[index].netdev = NULL;
 		ds->enabled_port_mask &= ~(1 << index);
 	}
 }
@@ -365,7 +364,7 @@ static int dsa_ds_apply(struct dsa_switch_tree *dst, struct dsa_switch *ds)
 	}
 
 	for (index = 0; index < ds->num_ports; index++) {
-		port = &ds->ports[index];
+		port = &ds->dd->dp[index];
 		if (!dsa_port_is_valid(port))
 			continue;
 
@@ -397,7 +396,7 @@ static void dsa_ds_unapply(struct dsa_switch_tree *dst, struct dsa_switch *ds)
 	u32 index;
 
 	for (index = 0; index < ds->num_ports; index++) {
-		port = &ds->ports[index];
+		port = &ds->dd->dp[index];
 		if (!dsa_port_is_valid(port))
 			continue;
 
@@ -540,7 +539,7 @@ static int dsa_ds_parse(struct dsa_switch_tree *dst, struct dsa_switch *ds)
 	int err;
 
 	for (index = 0; index < ds->num_ports; index++) {
-		port = &ds->ports[index];
+		port = &ds->dd->dp[index];
 		if (!dsa_port_is_valid(port))
 			continue;
 
@@ -596,13 +595,13 @@ static int dsa_parse_ports_dn(struct device_node *ports, struct dsa_switch *ds)
 		if (reg >= ds->num_ports)
 			return -EINVAL;
 
-		ds->ports[reg].dn = port;
+		ds->dd->dp[reg].dn = port;
 
 		/* Initialize enabled_port_mask now for ops->setup()
 		 * to have access to a correct value, just like what
 		 * net/dsa/dsa.c::dsa_switch_setup_one does.
 		 */
-		if (!dsa_port_is_cpu(&ds->ports[reg]))
+		if (!dsa_port_is_cpu(&ds->dd->dp[reg]))
 			ds->enabled_port_mask |= 1 << reg;
 	}
 
@@ -618,13 +617,13 @@ static int dsa_parse_ports(struct dsa_chip_data *cd, struct dsa_switch *ds)
 		if (!cd->port_names[i])
 			continue;
 
-		ds->ports[i].name = cd->port_names[i];
+		ds->dd->dp[i].name = cd->port_names[i];
 
 		/* Initialize enabled_port_mask now for drv->setup()
 		 * to have access to a correct value, just like what
 		 * net/dsa/dsa.c::dsa_switch_setup_one does.
 		 */
-		if (!dsa_port_is_cpu(&ds->ports[i]))
+		if (!dsa_port_is_cpu(&ds->dd->dp[i]))
 			ds->enabled_port_mask |= 1 << i;
 
 		valid_name_found = true;
@@ -783,20 +782,24 @@ out:
 
 struct dsa_switch *dsa_switch_alloc(struct device *dev, size_t n)
 {
-	size_t size = sizeof(struct dsa_switch) + n * sizeof(struct dsa_port);
+	size_t size = sizeof(struct dsa_device) + n * sizeof(struct dsa_port);
 	struct dsa_switch *ds;
 	int i;
 
-	ds = devm_kzalloc(dev, size, GFP_KERNEL);
+	ds = devm_kzalloc(dev, sizeof(struct dsa_switch), GFP_KERNEL);
 	if (!ds)
 		return NULL;
 
 	ds->dev = dev;
 	ds->num_ports = n;
 
+	ds->dd = devm_kzalloc(dev, size, GFP_KERNEL);
+	if (!ds->dd)
+		return NULL;
+
 	for (i = 0; i < ds->num_ports; ++i) {
-		ds->ports[i].index = i;
-		ds->ports[i].ds = ds;
+		ds->dd->dp[i].index = i;
+		ds->dd->dp[i].ds = ds;
 	}
 
 	return ds;

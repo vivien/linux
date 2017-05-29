@@ -119,7 +119,7 @@ static struct sk_buff *brcm_tag_rcv(struct sk_buff *skb, struct net_device *dev,
 	source_port = brcm_tag[3] & BRCM_EG_PID_MASK;
 
 	/* Validate port against switch setup, either the port is totally */
-	if (source_port >= ds->num_ports || !ds->ports[source_port].netdev)
+	if (source_port >= ds->num_ports || !ds->dd->dp[source_port].netdev)
 		return NULL;
 
 	/* Remove Broadcom tag and update checksum */
@@ -130,7 +130,7 @@ static struct sk_buff *brcm_tag_rcv(struct sk_buff *skb, struct net_device *dev,
 		skb->data - ETH_HLEN - BRCM_TAG_LEN,
 		2 * ETH_ALEN);
 
-	skb->dev = ds->ports[source_port].netdev;
+	skb->dev = ds->dd->dp[source_port].netdev;
 
 	return skb;
 }

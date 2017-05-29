@@ -32,7 +32,7 @@ struct net_device *dsa_bridge_dev(struct dsa_switch *ds, int p)
 	if (p >= ds->num_ports)
 		return NULL;
 
-	return ds->ports[p].bridge_dev;
+	return ds->dd->dp[p].bridge_dev;
 }
 
 struct net_device *dsa_netdev(struct dsa_switch *ds, int p)
@@ -40,7 +40,7 @@ struct net_device *dsa_netdev(struct dsa_switch *ds, int p)
 	if (p >= ds->num_ports)
 		return NULL;
 
-	return ds->ports[p].netdev;
+	return ds->dd->dp[p].netdev;
 }
 
 bool dsa_is_cpu_port(struct dsa_switch *ds, int p)
@@ -48,7 +48,7 @@ bool dsa_is_cpu_port(struct dsa_switch *ds, int p)
 	if (p >= ds->num_ports)
 		return false;
 
-	return ds->dst->cpu_dp == &ds->ports[p];
+	return ds->dst->cpu_dp == &ds->dd->dp[p];
 }
 
 bool dsa_is_dsa_port(struct dsa_switch *ds, int p)
@@ -285,7 +285,7 @@ static int dsa_switch_rcv(struct sk_buff *skb, struct net_device *dev,
 #ifdef CONFIG_PM_SLEEP
 static bool dsa_is_port_initialized(struct dsa_switch *ds, int p)
 {
-	return ds->enabled_port_mask & (1 << p) && ds->ports[p].netdev;
+	return ds->enabled_port_mask & (1 << p) && ds->dd->dp[p].netdev;
 }
 
 int dsa_switch_suspend(struct dsa_switch *ds)
@@ -297,7 +297,7 @@ int dsa_switch_suspend(struct dsa_switch *ds)
 		if (!dsa_is_port_initialized(ds, i))
 			continue;
 
-		ret = dsa_slave_suspend(ds->ports[i].netdev);
+		ret = dsa_slave_suspend(ds->dd->dp[i].netdev);
 		if (ret)
 			return ret;
 	}
@@ -324,7 +324,7 @@ int dsa_switch_resume(struct dsa_switch *ds)
 		if (!dsa_is_port_initialized(ds, i))
 			continue;
 
-		ret = dsa_slave_resume(ds->ports[i].netdev);
+		ret = dsa_slave_resume(ds->dd->dp[i].netdev);
 		if (ret)
 			return ret;
 	}
