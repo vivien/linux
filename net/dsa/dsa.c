@@ -29,16 +29,25 @@
 
 bool dsa_is_cpu_port(struct dsa_switch *ds, int p)
 {
+	if (p >= ds->num_ports)
+		return false;
+
 	return ds->dst->cpu_dp == &ds->ports[p];
 }
 
 bool dsa_is_dsa_port(struct dsa_switch *ds, int p)
 {
+	if (p >= ds->num_ports)
+		return false;
+
 	return !!((ds->dsa_port_mask) & (1 << p));
 }
 
 bool dsa_is_normal_port(struct dsa_switch *ds, int p)
 {
+	if (p >= ds->num_ports)
+		return false;
+
 	return !dsa_is_cpu_port(ds, p) && !dsa_is_dsa_port(ds, p);
 }
 
