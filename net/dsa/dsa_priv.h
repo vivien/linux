@@ -88,6 +88,9 @@ struct dsa_device {
 	/* Listener for switch fabric events */
 	struct notifier_block	nb;
 
+	/* devlink used to represent this switch device */
+	struct devlink		*devlink;
+
 	/* Dynamically allocated ports, keep last */
 	struct dsa_port		dp[];
 };

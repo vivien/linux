@@ -229,7 +229,7 @@ static int dsa_dsa_port_apply(struct dsa_port *port, u32 index,
 	memset(&ds->dd->dp[index].devlink_port, 0,
 	       sizeof(ds->dd->dp[index].devlink_port));
 
-	return devlink_port_register(ds->devlink,
+	return devlink_port_register(ds->dd->devlink,
 				     &ds->dd->dp[index].devlink_port, index);
 }
 
@@ -256,7 +256,7 @@ static int dsa_cpu_port_apply(struct dsa_port *port, u32 index,
 
 	memset(&ds->dd->dp[index].devlink_port, 0,
 	       sizeof(ds->dd->dp[index].devlink_port));
-	err = devlink_port_register(ds->devlink,
+	err = devlink_port_register(ds->dd->devlink,
 				    &ds->dd->dp[index].devlink_port, index);
 	return err;
 }
@@ -291,7 +291,7 @@ static int dsa_user_port_apply(struct dsa_port *port, u32 index,
 
 	memset(&ds->dd->dp[index].devlink_port, 0,
 	       sizeof(ds->dd->dp[index].devlink_port));
-	err = devlink_port_register(ds->devlink,
+	err = devlink_port_register(ds->dd->devlink,
 				    &ds->dd->dp[index].devlink_port, index);
 	if (err)
 		return err;
@@ -329,11 +329,11 @@ static int dsa_ds_apply(struct dsa_switch_tree *dst, struct dsa_switch *ds)
 	/* Add the switch to devlink before calling setup, so that setup can
 	 * add dpipe tables
 	 */
-	ds->devlink = devlink_alloc(&dsa_devlink_ops, 0);
-	if (!ds->devlink)
+	ds->dd->devlink = devlink_alloc(&dsa_devlink_ops, 0);
+	if (!ds->dd->devlink)
 		return -ENOMEM;
 
-	err = devlink_register(ds->devlink, ds->dev);
+	err = devlink_register(ds->dd->devlink, ds->dev);
 	if (err)
 		return err;
 
@@ -418,10 +418,10 @@ static void dsa_ds_unapply(struct dsa_switch_tree *dst, struct dsa_switch *ds)
 
 	dsa_switch_unregister_notifier(ds);
 
-	if (ds->devlink) {
-		devlink_unregister(ds->devlink);
-		devlink_free(ds->devlink);
-		ds->devlink = NULL;
+	if (ds->dd->devlink) {
+		devlink_unregister(ds->dd->devlink);
+		devlink_free(ds->dd->devlink);
+		ds->dd->devlink = NULL;
 	}
 
 }

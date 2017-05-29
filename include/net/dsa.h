@@ -230,9 +230,6 @@ struct dsa_switch {
 	unsigned int ageing_time_min;
 	unsigned int ageing_time_max;
 
-	/* devlink used to represent this switch device */
-	struct devlink		*devlink;
-
 	size_t num_ports;
 
 	/* Opaque internal state holder */
