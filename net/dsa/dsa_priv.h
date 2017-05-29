@@ -85,6 +85,9 @@ struct dsa_device_ops {
 };
 
 struct dsa_device {
+	/* Listener for switch fabric events */
+	struct notifier_block	nb;
+
 	/* Dynamically allocated ports, keep last */
 	struct dsa_port		dp[];
 };

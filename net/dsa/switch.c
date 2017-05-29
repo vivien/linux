@@ -243,16 +243,16 @@ static int dsa_switch_event(struct notifier_block *nb,
 
 int dsa_switch_register_notifier(struct dsa_switch *ds)
 {
-	ds->nb.notifier_call = dsa_switch_event;
+	ds->dd->nb.notifier_call = dsa_switch_event;
 
-	return raw_notifier_chain_register(&ds->dst->nh, &ds->nb);
+	return raw_notifier_chain_register(&ds->dst->nh, &ds->dd->nb);
 }
 
 void dsa_switch_unregister_notifier(struct dsa_switch *ds)
 {
 	int err;
 
-	err = raw_notifier_chain_unregister(&ds->dst->nh, &ds->nb);
+	err = raw_notifier_chain_unregister(&ds->dst->nh, &ds->dd->nb);
 	if (err)
 		dev_err(ds->dev, "failed to unregister notifier (%d)\n", err);
 }

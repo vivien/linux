@@ -189,9 +189,6 @@ struct dsa_switch {
 	struct dsa_switch_tree	*dst;
 	int			index;
 
-	/* Listener for switch fabric events */
-	struct notifier_block	nb;
-
 	/*
 	 * Give the switch driver somewhere to hang its private data
 	 * structure.
