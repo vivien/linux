@@ -18,6 +18,7 @@
 #include <linux/netfilter_bridge.h>
 #include <linux/neighbour.h>
 #include <net/arp.h>
+#include <net/dsa.h>
 #include <linux/export.h>
 #include <linux/rculist.h>
 #include "br_private.h"
@@ -256,7 +257,8 @@ rx_handler_result_t br_handle_frame(struct sk_buff **pskb)
 	const unsigned char *dest = eth_hdr(skb)->h_dest;
 	br_should_route_hook_t *rhook;
 
-	if (unlikely(skb->pkt_type == PACKET_LOOPBACK))
+	if (unlikely(skb->pkt_type == PACKET_LOOPBACK) ||
+	    netdev_uses_dsa(skb->dev))
 		return RX_HANDLER_PASS;
 
 	if (!is_valid_ether_addr(eth_hdr(skb)->h_source))
