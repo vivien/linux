@@ -252,37 +252,6 @@ struct dsa_switch {
 	struct dsa_port ports[];
 };
 
-static inline bool dsa_is_cpu_port(struct dsa_switch *ds, int p)
-{
-	return ds->dst->cpu_dp == &ds->ports[p];
-}
-
-static inline bool dsa_is_dsa_port(struct dsa_switch *ds, int p)
-{
-	return !!((ds->dsa_port_mask) & (1 << p));
-}
-
-static inline bool dsa_is_normal_port(struct dsa_switch *ds, int p)
-{
-	return !dsa_is_cpu_port(ds, p) && !dsa_is_dsa_port(ds, p);
-}
-
-static inline u8 dsa_upstream_port(struct dsa_switch *ds)
-{
-	struct dsa_switch_tree *dst = ds->dst;
-
-	/*
-	 * If this is the root switch (i.e. the switch that connects
-	 * to the CPU), return the cpu port number on this switch.
-	 * Else return the (DSA) port number that connects to the
-	 * switch that is one hop closer to the cpu.
-	 */
-	if (dst->cpu_dp->ds == ds)
-		return dst->cpu_dp->index;
-	else
-		return ds->rtable[dst->cpu_dp->ds->index];
-}
-
 struct dsa_switch_ops {
 	/*
 	 * Legacy probing.
@@ -487,5 +456,10 @@ static inline int dsa_switch_resume(struct dsa_switch *ds)
 	return 0;
 }
 #endif /* CONFIG_PM_SLEEP */
+
+bool dsa_is_cpu_port(struct dsa_switch *ds, int p);
+bool dsa_is_dsa_port(struct dsa_switch *ds, int p);
+bool dsa_is_normal_port(struct dsa_switch *ds, int p);
+u8 dsa_upstream_port(struct dsa_switch *ds);
 
 #endif
