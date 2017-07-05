@@ -2057,10 +2057,9 @@ static int mv88e6xxx_set_ageing_time(struct dsa_switch *ds,
 	return err;
 }
 
-static int mv88e6xxx_g1_setup(struct mv88e6xxx_chip *chip)
+static int mv88e6xxx_upstream_setup(struct mv88e6xxx_chip *chip)
 {
-	struct dsa_switch *ds = chip->ds;
-	u32 upstream_port = dsa_upstream_port(ds);
+	int upstream_port = dsa_upstream_port(chip->ds);
 	int err;
 
 	if (chip->info->ops->set_cpu_port) {
@@ -2074,6 +2073,14 @@ static int mv88e6xxx_g1_setup(struct mv88e6xxx_chip *chip)
 		if (err)
 			return err;
 	}
+
+	return 0;
+}
+
+static int mv88e6xxx_g1_setup(struct mv88e6xxx_chip *chip)
+{
+	struct dsa_switch *ds = chip->ds;
+	int err;
 
 	/* Disable remote management, and set the switch's DSA device number. */
 	err = mv88e6xxx_g1_write(chip, MV88E6XXX_G1_CTL2,
@@ -2150,6 +2157,10 @@ static int mv88e6xxx_setup(struct dsa_switch *ds)
 		if (err)
 			goto unlock;
 	}
+
+	err = mv88e6xxx_upstream_setup(chip);
+	if (err)
+		goto unlock;
 
 	/* Setup Switch Global 1 Registers */
 	err = mv88e6xxx_g1_setup(chip);
