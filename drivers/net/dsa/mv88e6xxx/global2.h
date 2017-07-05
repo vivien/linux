@@ -266,6 +266,9 @@ int mv88e6xxx_g2_pot_clear(struct mv88e6xxx_chip *chip);
 
 int mv88e6xxx_g2_trunk_clear(struct mv88e6xxx_chip *chip);
 
+int mv88e6xxx_g2_device_mapping_write(struct mv88e6xxx_chip *chip, int target,
+				      int port);
+
 extern const struct mv88e6xxx_irq_ops mv88e6097_watchdog_ops;
 extern const struct mv88e6xxx_irq_ops mv88e6390_watchdog_ops;
 
@@ -385,6 +388,12 @@ static const struct mv88e6xxx_irq_ops mv88e6097_watchdog_ops = {};
 static const struct mv88e6xxx_irq_ops mv88e6390_watchdog_ops = {};
 
 static inline int mv88e6xxx_g2_trunk_clear(struct mv88e6xxx_chip *chip)
+{
+	return -EOPNOTSUPP;
+}
+
+static inline int mv88e6xxx_g2_device_mapping_write(struct mv88e6xxx_chip *chip,
+						    int target, int port)
 {
 	return -EOPNOTSUPP;
 }
