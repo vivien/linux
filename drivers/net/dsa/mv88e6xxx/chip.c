@@ -2156,13 +2156,6 @@ static int mv88e6xxx_setup(struct dsa_switch *ds)
 	if (err)
 		goto unlock;
 
-	/* Setup Switch Global 2 Registers */
-	if (chip->info->global2_addr) {
-		err = mv88e6xxx_g2_setup(chip);
-		if (err)
-			goto unlock;
-	}
-
 	err = mv88e6xxx_irl_setup(chip);
 	if (err)
 		goto unlock;
