@@ -354,6 +354,9 @@ struct mv88e6xxx_ops {
 			   struct mv88e6xxx_vtu_entry *entry);
 	int (*vtu_loadpurge)(struct mv88e6xxx_chip *chip,
 			     struct mv88e6xxx_vtu_entry *entry);
+
+	/* Remote Management Unit operations */
+	int (*rmu_disable)(struct mv88e6xxx_chip *chip);
 };
 
 struct mv88e6xxx_irq_ops {
