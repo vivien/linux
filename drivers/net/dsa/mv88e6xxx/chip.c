@@ -919,6 +919,25 @@ static void mv88e6xxx_port_stp_state_set(struct dsa_switch *ds, int port,
 		dev_err(ds->dev, "p%d: failed to update state\n", port);
 }
 
+static struct mv88e6xxx_pri_setup(struct mv88e6xxx_chip *chip)
+{
+	int err;
+
+	if (chip->info->ops->ieee_pri_map) {
+		err = chip->info->ops->ieee_pri_map(chip);
+		if (err)
+			return err;
+	}
+
+	if (chip->info->ops->ip_pri_map) {
+		err = chip->info->ops->ip_pri_map(chip);
+		if (err)
+			return err;
+	}
+
+	return 0;
+}
+
 static int mv88e6xxx_devmap_setup(struct mv88e6xxx_chip *chip)
 {
 	int target, port;
@@ -2098,37 +2117,6 @@ static int mv88e6xxx_g1_setup(struct mv88e6xxx_chip *chip)
 {
 	int err;
 
-	/* Configure the IP ToS mapping registers. */
-	err = mv88e6xxx_g1_write(chip, MV88E6XXX_G1_IP_PRI_0, 0x0000);
-	if (err)
-		return err;
-	err = mv88e6xxx_g1_write(chip, MV88E6XXX_G1_IP_PRI_1, 0x0000);
-	if (err)
-		return err;
-	err = mv88e6xxx_g1_write(chip, MV88E6XXX_G1_IP_PRI_2, 0x5555);
-	if (err)
-		return err;
-	err = mv88e6xxx_g1_write(chip, MV88E6XXX_G1_IP_PRI_3, 0x5555);
-	if (err)
-		return err;
-	err = mv88e6xxx_g1_write(chip, MV88E6XXX_G1_IP_PRI_4, 0xaaaa);
-	if (err)
-		return err;
-	err = mv88e6xxx_g1_write(chip, MV88E6XXX_G1_IP_PRI_5, 0xaaaa);
-	if (err)
-		return err;
-	err = mv88e6xxx_g1_write(chip, MV88E6XXX_G1_IP_PRI_6, 0xffff);
-	if (err)
-		return err;
-	err = mv88e6xxx_g1_write(chip, MV88E6XXX_G1_IP_PRI_7, 0xffff);
-	if (err)
-		return err;
-
-	/* Configure the IEEE 802.1p priority mapping register. */
-	err = mv88e6xxx_g1_write(chip, MV88E6XXX_G1_IEEE_PRI, 0xfa41);
-	if (err)
-		return err;
-
 	/* Initialize the statistics unit */
 	err = mv88e6xxx_stats_set_histogram(chip);
 	if (err)
@@ -2213,6 +2201,10 @@ static int mv88e6xxx_setup(struct dsa_switch *ds)
 		goto unlock;
 
 	err = mv88e6xxx_devmap_setup(chip);
+	if (err)
+		goto unlock;
+
+	err = mv88e6xxx_pri_setup(chip);
 	if (err)
 		goto unlock;
 
@@ -2426,6 +2418,8 @@ static int mv88e6xxx_set_eeprom(struct dsa_switch *ds,
 
 static const struct mv88e6xxx_ops mv88e6085_ops = {
 	/* MV88E6XXX_FAMILY_6097 */
+	.ieee_pri_map = mv88e6xxx_g1_ieee_pri_map,
+	.ip_pri_map = mv88e6xxx_g1_ip_pri_map,
 	.irl_init_all = mv88e6352_g2_irl_init_all,
 	.set_switch_mac = mv88e6xxx_g1_set_switch_mac,
 	.phy_read = mv88e6185_phy_ppu_read,
@@ -2460,6 +2454,8 @@ static const struct mv88e6xxx_ops mv88e6085_ops = {
 
 static const struct mv88e6xxx_ops mv88e6095_ops = {
 	/* MV88E6XXX_FAMILY_6095 */
+	.ieee_pri_map = mv88e6xxx_g1_ieee_pri_map,
+	.ip_pri_map = mv88e6xxx_g1_ip_pri_map,
 	.set_switch_mac = mv88e6xxx_g1_set_switch_mac,
 	.phy_read = mv88e6185_phy_ppu_read,
 	.phy_write = mv88e6185_phy_ppu_write,
@@ -2483,6 +2479,8 @@ static const struct mv88e6xxx_ops mv88e6095_ops = {
 
 static const struct mv88e6xxx_ops mv88e6097_ops = {
 	/* MV88E6XXX_FAMILY_6097 */
+	.ieee_pri_map = mv88e6xxx_g1_ieee_pri_map,
+	.ip_pri_map = mv88e6xxx_g1_ip_pri_map,
 	.irl_init_all = mv88e6352_g2_irl_init_all,
 	.set_switch_mac = mv88e6xxx_g2_set_switch_mac,
 	.phy_read = mv88e6xxx_g2_smi_phy_read,
@@ -2516,6 +2514,8 @@ static const struct mv88e6xxx_ops mv88e6097_ops = {
 
 static const struct mv88e6xxx_ops mv88e6123_ops = {
 	/* MV88E6XXX_FAMILY_6165 */
+	.ieee_pri_map = mv88e6xxx_g1_ieee_pri_map,
+	.ip_pri_map = mv88e6xxx_g1_ip_pri_map,
 	.irl_init_all = mv88e6352_g2_irl_init_all,
 	.set_switch_mac = mv88e6xxx_g2_set_switch_mac,
 	.phy_read = mv88e6xxx_g2_smi_phy_read,
@@ -2543,6 +2543,8 @@ static const struct mv88e6xxx_ops mv88e6123_ops = {
 
 static const struct mv88e6xxx_ops mv88e6131_ops = {
 	/* MV88E6XXX_FAMILY_6185 */
+	.ieee_pri_map = mv88e6xxx_g1_ieee_pri_map,
+	.ip_pri_map = mv88e6xxx_g1_ip_pri_map,
 	.set_switch_mac = mv88e6xxx_g1_set_switch_mac,
 	.phy_read = mv88e6185_phy_ppu_read,
 	.phy_write = mv88e6185_phy_ppu_write,
@@ -2575,6 +2577,8 @@ static const struct mv88e6xxx_ops mv88e6131_ops = {
 
 static const struct mv88e6xxx_ops mv88e6141_ops = {
 	/* MV88E6XXX_FAMILY_6341 */
+	.ieee_pri_map = mv88e6xxx_g1_ieee_pri_map,
+	.ip_pri_map = mv88e6xxx_g1_ip_pri_map,
 	.irl_init_all = mv88e6352_g2_irl_init_all,
 	.get_eeprom = mv88e6xxx_g2_get_eeprom8,
 	.set_eeprom = mv88e6xxx_g2_set_eeprom8,
@@ -2612,6 +2616,8 @@ static const struct mv88e6xxx_ops mv88e6141_ops = {
 
 static const struct mv88e6xxx_ops mv88e6161_ops = {
 	/* MV88E6XXX_FAMILY_6165 */
+	.ieee_pri_map = mv88e6xxx_g1_ieee_pri_map,
+	.ip_pri_map = mv88e6xxx_g1_ip_pri_map,
 	.irl_init_all = mv88e6352_g2_irl_init_all,
 	.set_switch_mac = mv88e6xxx_g2_set_switch_mac,
 	.phy_read = mv88e6xxx_g2_smi_phy_read,
@@ -2644,6 +2650,8 @@ static const struct mv88e6xxx_ops mv88e6161_ops = {
 
 static const struct mv88e6xxx_ops mv88e6165_ops = {
 	/* MV88E6XXX_FAMILY_6165 */
+	.ieee_pri_map = mv88e6xxx_g1_ieee_pri_map,
+	.ip_pri_map = mv88e6xxx_g1_ip_pri_map,
 	.irl_init_all = mv88e6352_g2_irl_init_all,
 	.set_switch_mac = mv88e6xxx_g2_set_switch_mac,
 	.phy_read = mv88e6165_phy_read,
@@ -2669,6 +2677,8 @@ static const struct mv88e6xxx_ops mv88e6165_ops = {
 
 static const struct mv88e6xxx_ops mv88e6171_ops = {
 	/* MV88E6XXX_FAMILY_6351 */
+	.ieee_pri_map = mv88e6xxx_g1_ieee_pri_map,
+	.ip_pri_map = mv88e6xxx_g1_ip_pri_map,
 	.irl_init_all = mv88e6352_g2_irl_init_all,
 	.set_switch_mac = mv88e6xxx_g2_set_switch_mac,
 	.phy_read = mv88e6xxx_g2_smi_phy_read,
@@ -2702,6 +2712,8 @@ static const struct mv88e6xxx_ops mv88e6171_ops = {
 
 static const struct mv88e6xxx_ops mv88e6172_ops = {
 	/* MV88E6XXX_FAMILY_6352 */
+	.ieee_pri_map = mv88e6xxx_g1_ieee_pri_map,
+	.ip_pri_map = mv88e6xxx_g1_ip_pri_map,
 	.irl_init_all = mv88e6352_g2_irl_init_all,
 	.get_eeprom = mv88e6xxx_g2_get_eeprom16,
 	.set_eeprom = mv88e6xxx_g2_set_eeprom16,
@@ -2741,6 +2753,8 @@ static const struct mv88e6xxx_ops mv88e6172_ops = {
 
 static const struct mv88e6xxx_ops mv88e6175_ops = {
 	/* MV88E6XXX_FAMILY_6351 */
+	.ieee_pri_map = mv88e6xxx_g1_ieee_pri_map,
+	.ip_pri_map = mv88e6xxx_g1_ip_pri_map,
 	.irl_init_all = mv88e6352_g2_irl_init_all,
 	.set_switch_mac = mv88e6xxx_g2_set_switch_mac,
 	.phy_read = mv88e6xxx_g2_smi_phy_read,
@@ -2774,6 +2788,8 @@ static const struct mv88e6xxx_ops mv88e6175_ops = {
 
 static const struct mv88e6xxx_ops mv88e6176_ops = {
 	/* MV88E6XXX_FAMILY_6352 */
+	.ieee_pri_map = mv88e6xxx_g1_ieee_pri_map,
+	.ip_pri_map = mv88e6xxx_g1_ip_pri_map,
 	.irl_init_all = mv88e6352_g2_irl_init_all,
 	.get_eeprom = mv88e6xxx_g2_get_eeprom16,
 	.set_eeprom = mv88e6xxx_g2_set_eeprom16,
@@ -2813,6 +2829,8 @@ static const struct mv88e6xxx_ops mv88e6176_ops = {
 
 static const struct mv88e6xxx_ops mv88e6185_ops = {
 	/* MV88E6XXX_FAMILY_6185 */
+	.ieee_pri_map = mv88e6xxx_g1_ieee_pri_map,
+	.ip_pri_map = mv88e6xxx_g1_ip_pri_map,
 	.set_switch_mac = mv88e6xxx_g1_set_switch_mac,
 	.phy_read = mv88e6185_phy_ppu_read,
 	.phy_write = mv88e6185_phy_ppu_write,
@@ -2955,6 +2973,8 @@ static const struct mv88e6xxx_ops mv88e6191_ops = {
 
 static const struct mv88e6xxx_ops mv88e6240_ops = {
 	/* MV88E6XXX_FAMILY_6352 */
+	.ieee_pri_map = mv88e6xxx_g1_ieee_pri_map,
+	.ip_pri_map = mv88e6xxx_g1_ip_pri_map,
 	.irl_init_all = mv88e6352_g2_irl_init_all,
 	.get_eeprom = mv88e6xxx_g2_get_eeprom16,
 	.set_eeprom = mv88e6xxx_g2_set_eeprom16,
@@ -3033,6 +3053,8 @@ static const struct mv88e6xxx_ops mv88e6290_ops = {
 
 static const struct mv88e6xxx_ops mv88e6320_ops = {
 	/* MV88E6XXX_FAMILY_6320 */
+	.ieee_pri_map = mv88e6xxx_g1_ieee_pri_map,
+	.ip_pri_map = mv88e6xxx_g1_ip_pri_map,
 	.irl_init_all = mv88e6352_g2_irl_init_all,
 	.get_eeprom = mv88e6xxx_g2_get_eeprom16,
 	.set_eeprom = mv88e6xxx_g2_set_eeprom16,
@@ -3068,6 +3090,8 @@ static const struct mv88e6xxx_ops mv88e6320_ops = {
 
 static const struct mv88e6xxx_ops mv88e6321_ops = {
 	/* MV88E6XXX_FAMILY_6320 */
+	.ieee_pri_map = mv88e6xxx_g1_ieee_pri_map,
+	.ip_pri_map = mv88e6xxx_g1_ip_pri_map,
 	.irl_init_all = mv88e6352_g2_irl_init_all,
 	.get_eeprom = mv88e6xxx_g2_get_eeprom16,
 	.set_eeprom = mv88e6xxx_g2_set_eeprom16,
@@ -3101,6 +3125,8 @@ static const struct mv88e6xxx_ops mv88e6321_ops = {
 
 static const struct mv88e6xxx_ops mv88e6341_ops = {
 	/* MV88E6XXX_FAMILY_6341 */
+	.ieee_pri_map = mv88e6xxx_g1_ieee_pri_map,
+	.ip_pri_map = mv88e6xxx_g1_ip_pri_map,
 	.irl_init_all = mv88e6352_g2_irl_init_all,
 	.get_eeprom = mv88e6xxx_g2_get_eeprom8,
 	.set_eeprom = mv88e6xxx_g2_set_eeprom8,
@@ -3138,6 +3164,8 @@ static const struct mv88e6xxx_ops mv88e6341_ops = {
 
 static const struct mv88e6xxx_ops mv88e6350_ops = {
 	/* MV88E6XXX_FAMILY_6351 */
+	.ieee_pri_map = mv88e6xxx_g1_ieee_pri_map,
+	.ip_pri_map = mv88e6xxx_g1_ip_pri_map,
 	.irl_init_all = mv88e6352_g2_irl_init_all,
 	.set_switch_mac = mv88e6xxx_g2_set_switch_mac,
 	.phy_read = mv88e6xxx_g2_smi_phy_read,
@@ -3171,6 +3199,8 @@ static const struct mv88e6xxx_ops mv88e6350_ops = {
 
 static const struct mv88e6xxx_ops mv88e6351_ops = {
 	/* MV88E6XXX_FAMILY_6351 */
+	.ieee_pri_map = mv88e6xxx_g1_ieee_pri_map,
+	.ip_pri_map = mv88e6xxx_g1_ip_pri_map,
 	.irl_init_all = mv88e6352_g2_irl_init_all,
 	.set_switch_mac = mv88e6xxx_g2_set_switch_mac,
 	.phy_read = mv88e6xxx_g2_smi_phy_read,
@@ -3204,6 +3234,8 @@ static const struct mv88e6xxx_ops mv88e6351_ops = {
 
 static const struct mv88e6xxx_ops mv88e6352_ops = {
 	/* MV88E6XXX_FAMILY_6352 */
+	.ieee_pri_map = mv88e6xxx_g1_ieee_pri_map,
+	.ip_pri_map = mv88e6xxx_g1_ip_pri_map,
 	.irl_init_all = mv88e6352_g2_irl_init_all,
 	.get_eeprom = mv88e6xxx_g2_get_eeprom16,
 	.set_eeprom = mv88e6xxx_g2_set_eeprom16,
