@@ -772,12 +772,32 @@ static void mv88e6xxx_get_ethtool_stats(struct dsa_switch *ds, int port,
 	mutex_unlock(&chip->reg_lock);
 }
 
-static int mv88e6xxx_stats_set_histogram(struct mv88e6xxx_chip *chip)
+static int mv88e6xxx_stats_setup(struct mv88e6xxx_chip *chip)
 {
-	if (chip->info->ops->stats_set_histogram)
-		return chip->info->ops->stats_set_histogram(chip);
+	int err;
+
+	if (!chip->info->ops->stats_set_histogram)
+		return 0;
+
+	err = chip->info->ops->stats_set_histogram(chip);
+	if (err)
+		return err;
+
+	/* Clear the statistics counters for all ports */
+	err = mv88e6xxx_g1_write(chip, MV88E6XXX_G1_STATS_OP,
+				 MV88E6XXX_G1_STATS_OP_BUSY |
+				 MV88E6XXX_G1_STATS_OP_FLUSH_ALL);
+	if (err)
+		return err;
+
+	/* Wait for the flush to complete. */
+	err = mv88e6xxx_g1_stats_wait(chip);
+	if (err)
+		return err;
 
 	return 0;
+}
+
 }
 
 static int mv88e6xxx_get_regs_len(struct dsa_switch *ds, int port)
@@ -2113,30 +2133,6 @@ static int mv88e6xxx_upstream_setup(struct mv88e6xxx_chip *chip)
 	return 0;
 }
 
-static int mv88e6xxx_g1_setup(struct mv88e6xxx_chip *chip)
-{
-	int err;
-
-	/* Initialize the statistics unit */
-	err = mv88e6xxx_stats_set_histogram(chip);
-	if (err)
-		return err;
-
-	/* Clear the statistics counters for all ports */
-	err = mv88e6xxx_g1_write(chip, MV88E6XXX_G1_STATS_OP,
-				 MV88E6XXX_G1_STATS_OP_BUSY |
-				 MV88E6XXX_G1_STATS_OP_FLUSH_ALL);
-	if (err)
-		return err;
-
-	/* Wait for the flush to complete. */
-	err = mv88e6xxx_g1_stats_wait(chip);
-	if (err)
-		return err;
-
-	return 0;
-}
-
 static int mv88e6xxx_setup(struct dsa_switch *ds)
 {
 	struct mv88e6xxx_chip *chip = ds->priv;
@@ -2205,6 +2201,10 @@ static int mv88e6xxx_setup(struct dsa_switch *ds)
 		goto unlock;
 
 	err = mv88e6xxx_pri_setup(chip);
+	if (err)
+		goto unlock;
+
+	err = mv88e6xxx_stats_setup(chip);
 	if (err)
 		goto unlock;
 
