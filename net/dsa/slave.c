@@ -642,42 +642,46 @@ static int dsa_slave_set_wol(struct net_device *dev, struct ethtool_wolinfo *w)
 	return ret;
 }
 
-static int dsa_slave_set_eee(struct net_device *dev, struct ethtool_eee *e)
+static int dsa_slave_set_eee(struct net_device *dev, struct ethtool_eee *eee)
 {
 	struct dsa_slave_priv *p = netdev_priv(dev);
 	struct dsa_switch *ds = p->dp->ds;
-	int ret;
+	int err;
 
-	if (!ds->ops->set_eee)
-		return -EOPNOTSUPP;
+	if (!p->phy)
+		return -ENODEV;
 
-	ret = ds->ops->set_eee(ds, p->dp->index, p->phy, e);
-	if (ret)
-		return ret;
+	/* Set port's PHY EEE settings */
+	err = phy_ethtool_set_eee(p->phy, eee);
+	if (err)
+		return err;
 
-	if (p->phy)
-		ret = phy_ethtool_set_eee(p->phy, e);
+	/* Set port's MAC EEE settings */
+	if (ds->ops->set_eee)
+		return ds->ops->set_eee(ds, p->dp->index, p->phy, eee);
 
-	return ret;
+	return 0;
 }
 
-static int dsa_slave_get_eee(struct net_device *dev, struct ethtool_eee *e)
+static int dsa_slave_get_eee(struct net_device *dev, struct ethtool_eee *eee)
 {
 	struct dsa_slave_priv *p = netdev_priv(dev);
 	struct dsa_switch *ds = p->dp->ds;
-	int ret;
+	int err;
 
-	if (!ds->ops->get_eee)
-		return -EOPNOTSUPP;
+	if (!p->phy)
+		return -ENODEV;
 
-	ret = ds->ops->get_eee(ds, p->dp->index, e);
-	if (ret)
-		return ret;
+	/* Get port's PHY EEE settings */
+	err = phy_ethtool_get_eee(p->phy, eee);
+	if (err)
+		return err;
 
-	if (p->phy)
-		ret = phy_ethtool_get_eee(p->phy, e);
+	/* Get port's MAC EEE settings */
+	if (ds->ops->get_eee)
+		return ds->ops->get_eee(ds, p->dp->index, eee);
 
-	return ret;
+	return 0;
 }
 
 #ifdef CONFIG_NET_POLL_CONTROLLER
