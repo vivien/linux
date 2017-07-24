@@ -652,6 +652,12 @@ static int dsa_slave_set_eee(struct net_device *dev, struct ethtool_eee *eee)
 		return -ENODEV;
 
 	/* Set port's PHY EEE settings */
+	if (eee->eee_enabled) {
+		err = phy_eee_init(p->phy, 0);
+		if (err)
+			return err;
+	}
+
 	err = phy_ethtool_set_eee(p->phy, eee);
 	if (err)
 		return err;

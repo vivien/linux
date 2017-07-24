@@ -655,44 +655,17 @@ qca8k_eee_enable_set(struct dsa_switch *ds, int port, bool enable)
 }
 
 static int
-qca8k_eee_init(struct dsa_switch *ds, int port,
-	       struct phy_device *phy)
-{
-	struct qca8k_priv *priv = (struct qca8k_priv *)ds->priv;
-	struct ethtool_eee *p = &priv->port_sts[port].eee;
-	int ret;
-
-	p->supported = (SUPPORTED_1000baseT_Full | SUPPORTED_100baseT_Full);
-
-	ret = phy_init_eee(phy, 0);
-	if (ret)
-		return 0;
-
-	qca8k_eee_enable_set(ds, port, true);
-
-	return 1;
-}
-
-static int
 qca8k_set_eee(struct dsa_switch *ds, int port,
 	      struct phy_device *phydev,
 	      struct ethtool_eee *e)
 {
 	struct qca8k_priv *priv = (struct qca8k_priv *)ds->priv;
 	struct ethtool_eee *p = &priv->port_sts[port].eee;
-	int ret = 0;
 
 	p->eee_enabled = e->eee_enabled;
+	qca8k_eee_enable_set(ds, port, p->eee_enabled);
 
-	if (!p->eee_enabled) {
-		qca8k_eee_enable_set(ds, port, false);
-	} else {
-		p->eee_enabled = qca8k_eee_init(ds, port, phydev);
-		if (!p->eee_enabled)
-			ret = -EOPNOTSUPP;
-	}
-
-	return ret;
+	return 0;
 }
 
 static void
