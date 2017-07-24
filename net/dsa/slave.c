@@ -664,7 +664,7 @@ static int dsa_slave_set_eee(struct net_device *dev, struct ethtool_eee *eee)
 
 	/* Set port's MAC EEE settings */
 	if (ds->ops->set_eee)
-		return ds->ops->set_eee(ds, p->dp->index, p->phy, eee);
+		return ds->ops->set_eee(ds, p->dp->index, eee);
 
 	return 0;
 }

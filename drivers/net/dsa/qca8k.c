@@ -656,7 +656,6 @@ qca8k_eee_enable_set(struct dsa_switch *ds, int port, bool enable)
 
 static int
 qca8k_set_eee(struct dsa_switch *ds, int port,
-	      struct phy_device *phydev,
 	      struct ethtool_eee *e)
 {
 	struct qca8k_priv *priv = (struct qca8k_priv *)ds->priv;
