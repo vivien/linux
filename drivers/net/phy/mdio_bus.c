@@ -524,7 +524,6 @@ EXPORT_SYMBOL(mdiobus_read_nested);
  * @bus: the mii_bus struct
  * @addr: the phy address
  * @regnum: register number to read
- *
  * NOTE: MUST NOT be called from interrupt context,
  * because the bus read/write functions may wait for an interrupt
  * to conclude the operation.

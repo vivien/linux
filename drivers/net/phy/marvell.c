@@ -144,6 +144,7 @@
 #define MII_88E3016_DISABLE_SCRAMBLER	0x0200
 #define MII_88E3016_AUTO_MDIX_CROSSOVER	0x0030
 
+
 #define MII_88E1510_GEN_CTRL_REG_1		0x14
 #define MII_88E1510_GEN_CTRL_REG_1_MODE_MASK	0x7
 #define MII_88E1510_GEN_CTRL_REG_1_MODE_SGMII	0x1	/* SGMII to copper */
@@ -160,6 +161,20 @@
 
 #define ADVERTISE_PAUSE_FIBER		0x180
 #define ADVERTISE_PAUSE_ASYM_FIBER	0x100
+
+/* Page 0, Register 16: Copper Specific Control Register 1 */
+#define MV88E6XXX_PHY_CSCTL1					16
+#define MV88E6352_PHY_CSCTL1_ENERGY_DETECT_MASK			0x0300
+#define MV88E6352_PHY_CSCTL1_ENERGY_DETECT_OFF_MASK		0x0100 /* 0x */
+#define MV88E6352_PHY_CSCTL1_ENERGY_DETECT_SENSE_RCV		0x0200
+#define MV88E6352_PHY_CSCTL1_ENERGY_DETECT_SENSE_NLP		0x0300
+#define MV88E6390_PHY_CSCTL1_ENERGY_DETECT_MASK			0x0380
+#define MV88E6390_PHY_CSCTL1_ENERGY_DETECT_OFF_MASK		0x0180 /* 0xx */
+#define MV88E6390_PHY_CSCTL1_ENERGY_DETECT_SENSE_RCV_AUTO	0x0200
+#define MV88E6390_PHY_CSCTL1_ENERGY_DETECT_SENSE_RCV_SW		0x0280
+#define MV88E6390_PHY_CSCTL1_ENERGY_DETECT_SENSE_NLP_AUTO	0x0300
+#define MV88E6390_PHY_CSCTL1_ENERGY_DETECT_SENSE_NLP_SW		0x0380
+
 
 #define REGISTER_LINK_STATUS	0x400
 #define NB_FIBER_STATS	1
@@ -1931,6 +1946,50 @@ static int m88e1510_hwmon_probe(struct phy_device *phydev)
 }
 #endif
 
+static int mv88e6390_get_eee(struct phy_device *phydev, struct ethtool_eee *e)
+{
+	int val;
+
+	val = phy_read(phydev, MV88E6XXX_PHY_CSCTL1);
+	if (val < 0)
+		return val;
+
+	val &= MV88E6390_PHY_CSCTL1_ENERGY_DETECT_MASK;
+
+	e->eee_enabled = false;
+	e->tx_lpi_enabled = false;
+
+	switch (val) {
+	case MV88E6390_PHY_CSCTL1_ENERGY_DETECT_SENSE_NLP_AUTO:
+	case MV88E6390_PHY_CSCTL1_ENERGY_DETECT_SENSE_NLP_SW:
+		e->tx_lpi_enabled = true;
+		/* fall through... */
+	case MV88E6390_PHY_CSCTL1_ENERGY_DETECT_SENSE_RCV_AUTO:
+	case MV88E6390_PHY_CSCTL1_ENERGY_DETECT_SENSE_RCV_SW:
+		e->eee_enabled = true;
+	}
+
+	return 0;
+}
+
+static int mv88e6390_set_eee(struct phy_device *phydev, struct ethtool_eee *e)
+{
+	int val;
+
+	val = phy_read(phydev, MV88E6XXX_PHY_CSCTL1);
+	if (val < 0)
+		return val;
+
+	val &= ~MV88E6390_PHY_CSCTL1_ENERGY_DETECT_MASK;
+
+	if (e->eee_enabled)
+		val |= MV88E6390_PHY_CSCTL1_ENERGY_DETECT_SENSE_RCV_AUTO;
+	if (e->tx_lpi_enabled)
+		val |= MV88E6390_PHY_CSCTL1_ENERGY_DETECT_SENSE_NLP_AUTO;
+
+	return phy_write(phydev, MV88E6XXX_PHY_CSCTL1, val);
+}
+
 static int marvell_probe(struct phy_device *phydev)
 {
 	struct marvell_priv *priv;
@@ -2249,6 +2308,8 @@ static struct phy_driver marvell_drivers[] = {
 		.get_sset_count = marvell_get_sset_count,
 		.get_strings = marvell_get_strings,
 		.get_stats = marvell_get_stats,
+		.get_eee = mv88e6390_get_eee,
+		.set_eee = mv88e6390_set_eee,
 	},
 };
 

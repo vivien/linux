@@ -651,6 +651,10 @@ struct phy_driver {
 			    struct ethtool_tunable *tuna,
 			    const void *data);
 	int (*set_loopback)(struct phy_device *dev, bool enable);
+
+	/* Get and set EEE parameters */
+	int (*get_eee)(struct phy_device *dev, struct ethtool_eee *eee);
+	int (*set_eee)(struct phy_device *dev, struct ethtool_eee *eee);
 };
 #define to_phy_driver(d) container_of(to_mdio_common_driver(d),		\
 				      struct phy_driver, mdiodrv)

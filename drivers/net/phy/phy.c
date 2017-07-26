@@ -1377,7 +1377,11 @@ int phy_ethtool_get_eee(struct phy_device *phydev, struct ethtool_eee *data)
 		return val;
 	data->lp_advertised = mmd_eee_adv_to_ethtool_adv_t(val);
 
-	return 0;
+	val = 0;
+	if (phydev->drv->get_eee)
+		val = phydev->drv->get_eee(phydev, data);
+
+	return val;
 }
 EXPORT_SYMBOL(phy_ethtool_get_eee);
 
@@ -1408,6 +1412,12 @@ int phy_ethtool_set_eee(struct phy_device *phydev, struct ethtool_eee *data)
 
 	/* Mask prohibited EEE modes */
 	adv &= ~phydev->eee_broken_modes;
+
+	if (phydev->drv->set_eee) {
+		ret = phydev->drv->set_eee(phydev, data);
+		if (ret)
+			return ret;
+	}
 
 	if (old_adv != adv) {
 		ret = phy_write_mmd(phydev, MDIO_MMD_AN, MDIO_AN_EEE_ADV, adv);
