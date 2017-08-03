@@ -112,6 +112,10 @@ int dsa_legacy_fdb_del(struct ndmsg *ndm, struct nlattr *tb[],
 		       struct net_device *dev,
 		       const unsigned char *addr, u16 vid);
 
+/* master.c */
+struct dsa_master *dsa_master_create(struct dsa_port *port,
+				     struct net_device *netdev);
+
 /* port.c */
 int dsa_port_set_state(struct dsa_port *dp, u8 state,
 		       struct switchdev_trans *trans);
@@ -177,12 +181,12 @@ extern const struct dsa_device_ops trailer_netdev_ops;
 
 static inline struct net_device *dsa_master_netdev(struct dsa_slave_priv *p)
 {
-	return p->dp->cpu_dp->netdev;
+	return p->dp->ds->dst->master->netdev;
 }
 
 static inline struct dsa_port *dsa_get_cpu_port(struct dsa_switch_tree *dst)
 {
-	return dst->cpu_dp;
+	return dst->master->port;
 }
 
 #endif

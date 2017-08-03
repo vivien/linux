@@ -138,7 +138,7 @@ struct dsa_switch_tree {
 	/*
 	 * The switch port to which the CPU is attached.
 	 */
-	struct dsa_port		*cpu_dp;
+	struct dsa_master	*master;
 
 	/*
 	 * Data for the individual switch chips.
@@ -173,6 +173,10 @@ struct dsa_mall_tc_entry {
 	};
 };
 
+struct dsa_master {
+	struct dsa_port *port;
+	struct net_device *netdev;
+};
 
 struct dsa_port {
 	struct dsa_switch	*ds;
@@ -273,10 +277,10 @@ static inline u8 dsa_upstream_port(struct dsa_switch *ds)
 	 * Else return the (DSA) port number that connects to the
 	 * switch that is one hop closer to the cpu.
 	 */
-	if (dst->cpu_dp->ds == ds)
-		return dst->cpu_dp->index;
+	if (dst->master->port->ds == ds)
+		return dst->master->port->index;
 	else
-		return ds->rtable[dst->cpu_dp->ds->index];
+		return ds->rtable[dst->master->port->ds->index];
 }
 
 typedef int dsa_fdb_dump_cb_t(const unsigned char *addr, u16 vid,

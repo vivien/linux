@@ -337,7 +337,7 @@ static int dsa_ds_apply(struct dsa_switch_tree *dst, struct dsa_switch *ds)
 		return err;
 
 	if (ds->ops->set_addr) {
-		err = ds->ops->set_addr(ds, dst->cpu_dp->netdev->dev_addr);
+		err = ds->ops->set_addr(ds, dst->master->netdev->dev_addr);
 		if (err < 0)
 			return err;
 	}
@@ -433,8 +433,8 @@ static int dsa_dst_apply(struct dsa_switch_tree *dst)
 			return err;
 	}
 
-	if (dst->cpu_dp) {
-		err = dsa_cpu_port_ethtool_setup(dst->cpu_dp);
+	if (dst->master) {
+		err = dsa_cpu_port_ethtool_setup(dst->master->port);
 		if (err)
 			return err;
 	}
@@ -444,7 +444,7 @@ static int dsa_dst_apply(struct dsa_switch_tree *dst)
 	 * sent to the tag format's receive function.
 	 */
 	wmb();
-	dst->cpu_dp->netdev->dsa_ptr = dst;
+	dst->master->netdev->dsa_ptr = dst;
 	dst->applied = true;
 
 	return 0;
@@ -458,7 +458,7 @@ static void dsa_dst_unapply(struct dsa_switch_tree *dst)
 	if (!dst->applied)
 		return;
 
-	dst->cpu_dp->netdev->dsa_ptr = NULL;
+	dst->master->netdev->dsa_ptr = NULL;
 
 	/* If we used a tagging format that doesn't have an ethertype
 	 * field, make sure that all packets from this point get sent
@@ -474,9 +474,9 @@ static void dsa_dst_unapply(struct dsa_switch_tree *dst)
 		dsa_ds_unapply(dst, ds);
 	}
 
-	if (dst->cpu_dp) {
-		dsa_cpu_port_ethtool_restore(dst->cpu_dp);
-		dst->cpu_dp = NULL;
+	if (dst->master) {
+		dsa_cpu_port_ethtool_restore(dst->master->port);
+		dst->master = NULL;
 	}
 
 	pr_info("DSA: tree %d unapplied\n", dst->tree);
@@ -504,9 +504,10 @@ static int dsa_cpu_parse(struct dsa_port *port, u32 index,
 	if (!ethernet_dev)
 		return -EPROBE_DEFER;
 
-	if (!dst->cpu_dp) {
-		dst->cpu_dp = port;
-		dst->cpu_dp->netdev = ethernet_dev;
+	if (!dst->master) {
+		dst->master = dsa_master_create(port, ethernet_dev);
+		if (!dst->master)
+			return -ENOMEM;
 	}
 
 	/* Initialize cpu_port_mask now for drv->setup()
@@ -577,7 +578,7 @@ static int dsa_dst_parse(struct dsa_switch_tree *dst)
 			return err;
 	}
 
-	if (!dst->cpu_dp->netdev) {
+	if (!dst->master) {
 		pr_warn("Tree has no master device\n");
 		return -EINVAL;
 	}
@@ -595,7 +596,7 @@ static int dsa_dst_parse(struct dsa_switch_tree *dst)
 			    dsa_port_is_cpu(dp))
 				continue;
 
-			dp->cpu_dp = dst->cpu_dp;
+			dp->cpu_dp = dst->master->port;
 		}
 	}
 

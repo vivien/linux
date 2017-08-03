@@ -114,13 +114,16 @@ static int dsa_switch_setup_one(struct dsa_switch *ds,
 			continue;
 
 		if (!strcmp(name, "cpu")) {
-			if (dst->cpu_dp) {
+			if (dst->master) {
 				netdev_err(master,
 					   "multiple cpu ports?!\n");
 				return -EINVAL;
 			}
-			dst->cpu_dp = &ds->ports[i];
-			dst->cpu_dp->netdev = master;
+
+			dst->master = dsa_master_create(&ds->ports[i], master);
+			if (!dst->master)
+				return -ENOMEM;
+
 			ds->cpu_port_mask |= 1 << i;
 		} else if (!strcmp(name, "dsa")) {
 			ds->dsa_port_mask |= 1 << i;
@@ -143,7 +146,7 @@ static int dsa_switch_setup_one(struct dsa_switch *ds,
 	 * tagging protocol to the preferred tagging format of this
 	 * switch.
 	 */
-	if (dst->cpu_dp->ds == ds) {
+	if (dst->master->port->ds == ds) {
 		enum dsa_tag_protocol tag_protocol;
 
 		tag_protocol = ops->get_tag_protocol(ds);
@@ -189,7 +192,7 @@ static int dsa_switch_setup_one(struct dsa_switch *ds,
 	 */
 	for (i = 0; i < ds->num_ports; i++) {
 		ds->ports[i].dn = cd->port_dn[i];
-		ds->ports[i].cpu_dp = dst->cpu_dp;
+		ds->ports[i].cpu_dp = dst->master->port;
 
 		if (!(ds->enabled_port_mask & (1 << i)))
 			continue;
@@ -206,7 +209,7 @@ static int dsa_switch_setup_one(struct dsa_switch *ds,
 		netdev_err(master, "[%d] : can't configure CPU and DSA ports\n",
 			   index);
 
-	ret = dsa_cpu_port_ethtool_setup(ds->dst->cpu_dp);
+	ret = dsa_cpu_port_ethtool_setup(ds->dst->master->port);
 	if (ret)
 		return ret;
 
@@ -671,7 +674,7 @@ static void dsa_remove_dst(struct dsa_switch_tree *dst)
 {
 	int i;
 
-	dst->cpu_dp->netdev->dsa_ptr = NULL;
+	dst->master->netdev->dsa_ptr = NULL;
 
 	/* If we used a tagging format that doesn't have an ethertype
 	 * field, make sure that all packets from this point get sent
@@ -686,9 +689,9 @@ static void dsa_remove_dst(struct dsa_switch_tree *dst)
 			dsa_switch_destroy(ds);
 	}
 
-	dsa_cpu_port_ethtool_restore(dst->cpu_dp);
+	dsa_cpu_port_ethtool_restore(dst->master->port);
 
-	dev_put(dst->cpu_dp->netdev);
+	dev_put(dst->master->netdev);
 }
 
 static int dsa_remove(struct platform_device *pdev)
