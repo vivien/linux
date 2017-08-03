@@ -12,6 +12,110 @@
 
 #include "dsa_priv.h"
 
+static void dsa_master_get_ethtool_stats(struct net_device *dev,
+					 struct ethtool_stats *stats,
+					 uint64_t *data)
+{
+	struct dsa_switch_tree *dst = dev->dsa_ptr;
+	struct dsa_master *master = dst->master;
+	struct dsa_port *port = master->port;
+	struct dsa_switch *ds = port->ds;
+	int count = 0;
+
+	if (master->ethtool_ops.get_sset_count) {
+		count = master->ethtool_ops.get_sset_count(dev, ETH_SS_STATS);
+		master->ethtool_ops.get_ethtool_stats(dev, stats, data);
+	}
+
+	if (ds->ops->get_ethtool_stats)
+		ds->ops->get_ethtool_stats(ds, port->index, data + count);
+}
+
+static int dsa_master_get_sset_count(struct net_device *dev, int sset)
+{
+	struct dsa_switch_tree *dst = dev->dsa_ptr;
+	struct dsa_master *master = dst->master;
+	struct dsa_port *port = master->port;
+	struct dsa_switch *ds = port->ds;
+	int count = 0;
+
+	if (master->ethtool_ops.get_sset_count)
+		count += master->ethtool_ops.get_sset_count(dev, sset);
+
+	if (sset == ETH_SS_STATS && ds->ops->get_sset_count)
+		count += ds->ops->get_sset_count(ds);
+
+	return count;
+}
+
+static void dsa_master_get_strings(struct net_device *dev, uint32_t stringset,
+				   uint8_t *data)
+{
+	struct dsa_switch_tree *dst = dev->dsa_ptr;
+	struct dsa_master *master = dst->master;
+	struct dsa_port *port = master->port;
+	struct dsa_switch *ds = port->ds;
+	int len = ETH_GSTRING_LEN;
+	int mcount = 0, count;
+	unsigned int i;
+	uint8_t pfx[4];
+	uint8_t *ndata;
+
+	snprintf(pfx, sizeof(pfx), "p%.2d", port->index);
+	/* We do not want to be NULL-terminated, since this is a prefix */
+	pfx[sizeof(pfx) - 1] = '_';
+
+	if (master->ethtool_ops.get_sset_count) {
+		mcount = master->ethtool_ops.get_sset_count(dev, ETH_SS_STATS);
+		master->ethtool_ops.get_strings(dev, stringset, data);
+	}
+
+	if (stringset == ETH_SS_STATS && ds->ops->get_strings) {
+		ndata = data + mcount * len;
+		/* This function copies ETH_GSTRINGS_LEN bytes, we will mangle
+		 * the output after to prepend our CPU port prefix we
+		 * constructed earlier
+		 */
+		ds->ops->get_strings(ds, port->index, ndata);
+		count = ds->ops->get_sset_count(ds);
+		for (i = 0; i < count; i++) {
+			memmove(ndata + (i * len + sizeof(pfx)),
+				ndata + i * len, len - sizeof(pfx));
+			memcpy(ndata + i * len, pfx, sizeof(pfx));
+		}
+	}
+}
+
+int dsa_master_ethtool_setup(struct dsa_master *master)
+{
+	struct device *dev = master->port->ds->dev;
+	struct net_device *netdev = master->netdev;
+	struct ethtool_ops *ops;
+
+	ops = devm_kzalloc(dev, sizeof(*ops), GFP_KERNEL);
+	if (!ops)
+		return -ENOMEM;
+
+	/* Back up the original master netdev ethtool_ops */
+	master->orig_ethtool_ops = netdev->ethtool_ops;
+	memcpy(&master->ethtool_ops, master->orig_ethtool_ops, sizeof(*ops));
+	memcpy(ops, &master->ethtool_ops, sizeof(*ops));
+
+	/* Change the master netdev ethtool_ops */
+	ops->get_sset_count = dsa_master_get_sset_count;
+	ops->get_ethtool_stats = dsa_master_get_ethtool_stats;
+	ops->get_strings = dsa_master_get_strings;
+	netdev->ethtool_ops = ops;
+
+	return 0;
+}
+
+void dsa_master_ethtool_restore(struct dsa_master *master)
+{
+	master->netdev->ethtool_ops = master->orig_ethtool_ops;
+	master->orig_ethtool_ops = NULL;
+}
+
 struct dsa_master *dsa_master_create(struct dsa_port *port,
 				     struct net_device *netdev)
 {
@@ -24,7 +128,6 @@ struct dsa_master *dsa_master_create(struct dsa_port *port,
 
 	master->port = port;
 	master->netdev = netdev;
-	master->port->netdev = netdev;
 
 	return master;
 }

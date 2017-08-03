@@ -176,6 +176,10 @@ struct dsa_mall_tc_entry {
 struct dsa_master {
 	struct dsa_port *port;
 	struct net_device *netdev;
+
+	/* Original copy of the master netdev ethtool_ops */
+	const struct ethtool_ops *orig_ethtool_ops;
+	struct ethtool_ops ethtool_ops;
 };
 
 struct dsa_port {
@@ -189,11 +193,6 @@ struct dsa_port {
 	u8			stp_state;
 	struct net_device	*bridge_dev;
 	struct devlink_port	devlink_port;
-	/*
-	 * Original copy of the master netdev ethtool_ops
-	 */
-	struct ethtool_ops	ethtool_ops;
-	const struct ethtool_ops *orig_ethtool_ops;
 };
 
 struct dsa_switch {
