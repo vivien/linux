@@ -403,6 +403,8 @@ static inline bool dsa_port_is_vlan_filtering(const struct dsa_port *dp)
 /* FDB (and MDB) dump callback */
 typedef int dsa_fdb_dump_cb_t(const unsigned char *addr, u16 vid,
 			      bool is_static, void *data);
+typedef int dsa_vlan_dump_cb_t(u16 vid, bool pvid, bool untagged, void *data);
+
 struct dsa_switch_ops {
 	enum dsa_tag_protocol (*get_tag_protocol)(struct dsa_switch *ds,
 						  int port);
@@ -531,6 +533,9 @@ struct dsa_switch_ops {
 			      const struct switchdev_obj_port_vlan *vlan);
 	int	(*port_vlan_del)(struct dsa_switch *ds, int port,
 				 const struct switchdev_obj_port_vlan *vlan);
+	int	(*port_vlan_dump)(struct dsa_switch *ds, int port,
+				  dsa_vlan_dump_cb_t *cb, void *data);
+
 	/*
 	 * Forwarding database
 	 */
