@@ -351,6 +351,8 @@ static int __init dsa_init_module(void)
 	dsa_tag_driver_register(&DSA_TAG_DRIVER_NAME(none_ops),
 				THIS_MODULE);
 
+	dsa_debugfs_create_module();
+
 	return 0;
 
 register_notifier_fail:
@@ -362,6 +364,8 @@ module_init(dsa_init_module);
 
 static void __exit dsa_cleanup_module(void)
 {
+	dsa_debugfs_destroy_module();
+
 	dsa_tag_driver_unregister(&DSA_TAG_DRIVER_NAME(none_ops));
 
 	dsa_slave_unregister_notifier();

@@ -117,4 +117,18 @@ config NET_DSA_TAG_TRAILER
 	  Say Y or M if you want to enable support for tagging frames at
 	  with a trailed. e.g. Marvell 88E6060.
 
+config NET_DSA_DEBUGFS
+	bool "Distributed Switch Architecture debugfs interface"
+	depends on DEBUG_FS
+	---help---
+	  Enable creation of debugfs files for the DSA core.
+
+	  These debugfs files provide per-switch information, such as the tag
+	  protocol in use and ports connectivity. They also allow querying the
+	  hardware directly through the switch operations for debugging instead
+	  of going through the bridge, switchdev and DSA layers.
+
+	  This is also a way to inspect the stats and FDB, MDB or VLAN entries
+	  of CPU and DSA links, since they are not exposed to userspace.
+
 endif
