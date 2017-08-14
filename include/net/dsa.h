@@ -45,6 +45,32 @@ enum dsa_tag_protocol {
 	DSA_TAG_LAST,		/* MUST BE LAST */
 };
 
+static inline const char *dsa_tag_protocol_name(enum dsa_tag_protocol proto)
+{
+	switch (proto) {
+	case DSA_TAG_PROTO_NONE:
+		return "none";
+	case DSA_TAG_PROTO_BRCM:
+		return "BRCM";
+	case DSA_TAG_PROTO_DSA:
+		return "DSA";
+	case DSA_TAG_PROTO_EDSA:
+		return "EDSA";
+	case DSA_TAG_PROTO_KSZ9477:
+		return "KSZ9477";
+	case DSA_TAG_PROTO_LAN9303:
+		return "LAN9303";
+	case DSA_TAG_PROTO_MTK:
+		return "MTK";
+	case DSA_TAG_PROTO_QCA:
+		return "QCA";
+	case DSA_TAG_PROTO_TRAILER:
+		return "TRAILER";
+	default:
+		return "unknown";
+	}
+}
+
 struct packet_type;
 struct dsa_switch;
 
@@ -174,6 +200,13 @@ struct dsa_switch {
 	 */
 	void *priv;
 
+#ifdef CONFIG_NET_DSA_DEBUGFS
+	/*
+	 * Debugfs interface.
+	 */
+	struct dentry *debugfs_dir;
+#endif
+
 	/*
 	 * Configuration data for this switch.
 	 */
@@ -274,8 +307,11 @@ static inline unsigned int dsa_upstream_port(struct dsa_switch *ds, int port)
 	return dsa_towards_port(ds, cpu_dp->ds->index, cpu_dp->index);
 }
 
+/* FDB (and MDB) dump callback */
 typedef int dsa_fdb_dump_cb_t(const unsigned char *addr, u16 vid,
 			      bool is_static, void *data);
+typedef int dsa_vlan_dump_cb_t(u16 vid, bool pvid, bool untagged, void *data);
+
 struct dsa_switch_ops {
 #if IS_ENABLED(CONFIG_NET_DSA_LEGACY)
 	/*
@@ -412,6 +448,9 @@ struct dsa_switch_ops {
 			      const struct switchdev_obj_port_vlan *vlan);
 	int	(*port_vlan_del)(struct dsa_switch *ds, int port,
 				 const struct switchdev_obj_port_vlan *vlan);
+	int	(*port_vlan_dump)(struct dsa_switch *ds, int port,
+				  dsa_vlan_dump_cb_t *cb, void *data);
+
 	/*
 	 * Forwarding database
 	 */
@@ -431,6 +470,8 @@ struct dsa_switch_ops {
 			     const struct switchdev_obj_port_mdb *mdb);
 	int	(*port_mdb_del)(struct dsa_switch *ds, int port,
 				const struct switchdev_obj_port_mdb *mdb);
+	int	(*port_mdb_dump)(struct dsa_switch *ds, int port,
+				 dsa_fdb_dump_cb_t *cb, void *data);
 	/*
 	 * RXNFC
 	 */
