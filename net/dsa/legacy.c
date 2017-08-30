@@ -147,14 +147,9 @@ static int dsa_switch_setup_one(struct dsa_switch *ds,
 	 * switch.
 	 */
 	if (dst->master->port->ds == ds) {
-		enum dsa_tag_protocol tag_protocol;
-
-		tag_protocol = ops->get_tag_protocol(ds);
-		dst->tag_ops = dsa_resolve_tag_protocol(tag_protocol);
-		if (IS_ERR(dst->tag_ops))
-			return PTR_ERR(dst->tag_ops);
-
-		dst->rcv = dst->tag_ops->rcv;
+		ret = dsa_master_tag_protocol(dst->master);
+		if (ret)
+			return ret;
 	}
 
 	memcpy(ds->rtable, cd->rtable, sizeof(ds->rtable));
@@ -607,7 +602,7 @@ static int dsa_setup_dst(struct dsa_switch_tree *dst, struct net_device *dev,
 	 * sent to the tag format's receive function.
 	 */
 	wmb();
-	dev->dsa_ptr = dst;
+	dev->dsa_ptr = dst->master;
 
 	return 0;
 }

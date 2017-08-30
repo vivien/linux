@@ -444,7 +444,7 @@ static int dsa_dst_apply(struct dsa_switch_tree *dst)
 	 * sent to the tag format's receive function.
 	 */
 	wmb();
-	dst->master->netdev->dsa_ptr = dst;
+	dst->master->netdev->dsa_ptr = dst->master;
 	dst->applied = true;
 
 	return 0;
@@ -487,9 +487,9 @@ static int dsa_cpu_parse(struct dsa_port *port, u32 index,
 			 struct dsa_switch_tree *dst,
 			 struct dsa_switch *ds)
 {
-	enum dsa_tag_protocol tag_protocol;
 	struct net_device *ethernet_dev;
 	struct device_node *ethernet;
+	int err;
 
 	if (port->dn) {
 		ethernet = of_parse_phandle(port->dn, "ethernet", 0);
@@ -516,15 +516,12 @@ static int dsa_cpu_parse(struct dsa_port *port, u32 index,
 	 */
 	ds->cpu_port_mask |= BIT(index);
 
-	tag_protocol = ds->ops->get_tag_protocol(ds);
-	dst->tag_ops = dsa_resolve_tag_protocol(tag_protocol);
-	if (IS_ERR(dst->tag_ops)) {
+	err = dsa_master_tag_protocol(dst->master);
+	if (err) {
 		dev_warn(ds->dev, "No tagger for this switch\n");
 		ds->cpu_port_mask &= ~BIT(index);
-		return PTR_ERR(dst->tag_ops);
+		return err;
 	}
-
-	dst->rcv = dst->tag_ops->rcv;
 
 	return 0;
 }

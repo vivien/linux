@@ -70,12 +70,10 @@ static struct sk_buff *lan9303_xmit(struct sk_buff *skb, struct net_device *dev)
 static struct sk_buff *lan9303_rcv(struct sk_buff *skb, struct net_device *dev,
 			struct packet_type *pt)
 {
+	struct dsa_master *master = dev->dsa_ptr;
+	struct dsa_switch *ds = master->port->ds;
 	u16 *lan9303_tag;
-	struct dsa_switch_tree *dst = dev->dsa_ptr;
-	struct dsa_switch *ds;
 	unsigned int source_port;
-
-	ds = dst->ds[0];
 
 	if (unlikely(!ds)) {
 		dev_warn_ratelimited(&dev->dev, "Dropping packet, due to missing DSA switch device\n");

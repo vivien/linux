@@ -67,7 +67,8 @@ static struct sk_buff *dsa_xmit(struct sk_buff *skb, struct net_device *dev)
 static struct sk_buff *dsa_rcv(struct sk_buff *skb, struct net_device *dev,
 			       struct packet_type *pt)
 {
-	struct dsa_switch_tree *dst = dev->dsa_ptr;
+	struct dsa_master *master = dev->dsa_ptr;
+	struct dsa_switch_tree *dst = master->port->ds->dst;
 	struct dsa_switch *ds;
 	u8 *dsa_header;
 	int source_device;

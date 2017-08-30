@@ -66,7 +66,7 @@ struct dsa_notifier_vlan_info {
 };
 
 struct dsa_slave_priv {
-	/* Copy of dp->ds->dst->tag_ops->xmit for faster access in hot path */
+	/* Copy of the master xmit tagging op for faster access in hot path */
 	struct sk_buff *	(*xmit)(struct sk_buff *skb,
 					struct net_device *dev);
 
@@ -115,6 +115,7 @@ struct dsa_master *dsa_master_create(struct dsa_port *port,
 				     struct net_device *netdev);
 int dsa_master_ethtool_setup(struct dsa_master *master);
 void dsa_master_ethtool_restore(struct dsa_master *master);
+int dsa_master_tag_protocol(struct dsa_master *master);
 
 /* port.c */
 int dsa_port_set_state(struct dsa_port *dp, u8 state,
@@ -181,11 +182,6 @@ extern const struct dsa_device_ops trailer_netdev_ops;
 static inline struct net_device *dsa_master_netdev(struct dsa_slave_priv *p)
 {
 	return p->dp->ds->dst->master->netdev;
-}
-
-static inline struct dsa_port *dsa_get_cpu_port(struct dsa_switch_tree *dst)
-{
-	return dst->master->port;
 }
 
 #endif

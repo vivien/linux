@@ -16,8 +16,7 @@ static void dsa_master_get_ethtool_stats(struct net_device *dev,
 					 struct ethtool_stats *stats,
 					 uint64_t *data)
 {
-	struct dsa_switch_tree *dst = dev->dsa_ptr;
-	struct dsa_master *master = dst->master;
+	struct dsa_master *master = dev->dsa_ptr;
 	struct dsa_port *port = master->port;
 	struct dsa_switch *ds = port->ds;
 	int count = 0;
@@ -33,8 +32,7 @@ static void dsa_master_get_ethtool_stats(struct net_device *dev,
 
 static int dsa_master_get_sset_count(struct net_device *dev, int sset)
 {
-	struct dsa_switch_tree *dst = dev->dsa_ptr;
-	struct dsa_master *master = dst->master;
+	struct dsa_master *master = dev->dsa_ptr;
 	struct dsa_port *port = master->port;
 	struct dsa_switch *ds = port->ds;
 	int count = 0;
@@ -51,8 +49,7 @@ static int dsa_master_get_sset_count(struct net_device *dev, int sset)
 static void dsa_master_get_strings(struct net_device *dev, uint32_t stringset,
 				   uint8_t *data)
 {
-	struct dsa_switch_tree *dst = dev->dsa_ptr;
-	struct dsa_master *master = dst->master;
+	struct dsa_master *master = dev->dsa_ptr;
 	struct dsa_port *port = master->port;
 	struct dsa_switch *ds = port->ds;
 	int len = ETH_GSTRING_LEN;
@@ -114,6 +111,25 @@ void dsa_master_ethtool_restore(struct dsa_master *master)
 {
 	master->netdev->ethtool_ops = master->orig_ethtool_ops;
 	master->orig_ethtool_ops = NULL;
+}
+
+int dsa_master_tag_protocol(struct dsa_master *master)
+{
+	struct dsa_switch *ds = master->port->ds;
+	enum dsa_tag_protocol proto;
+
+	if (!ds->ops->get_tag_protocol)
+		return -EOPNOTSUPP;
+
+	proto = ds->ops->get_tag_protocol(ds);
+
+	master->tag_ops = dsa_resolve_tag_protocol(proto);
+	if (IS_ERR(master->tag_ops))
+		return PTR_ERR(master->tag_ops);
+
+	master->rcv = master->tag_ops->rcv;
+
+	return 0;
 }
 
 struct dsa_master *dsa_master_create(struct dsa_port *port,

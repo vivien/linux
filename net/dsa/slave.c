@@ -1206,7 +1206,7 @@ int dsa_slave_create(struct dsa_port *port, const char *name)
 	}
 	p->dp = port;
 	INIT_LIST_HEAD(&p->mall_tc_list);
-	p->xmit = dst->tag_ops->xmit;
+	p->xmit = dst->master->tag_ops->xmit;
 
 	p->old_pause = -1;
 	p->old_link = -1;
