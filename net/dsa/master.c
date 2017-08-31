@@ -86,7 +86,7 @@ static void dsa_master_get_strings(struct net_device *dev, uint32_t stringset,
 	}
 }
 
-int dsa_master_ethtool_setup(struct dsa_master *master)
+static int dsa_master_ethtool_setup(struct dsa_master *master)
 {
 	struct device *dev = master->port->ds->dev;
 	struct ethtool_ops *ops;
@@ -108,7 +108,7 @@ int dsa_master_ethtool_setup(struct dsa_master *master)
 	return 0;
 }
 
-void dsa_master_ethtool_restore(struct dsa_master *master)
+static void dsa_master_ethtool_restore(struct dsa_master *master)
 {
 	master->netdev->ethtool_ops = master->orig_ethtool_ops;
 	master->orig_ethtool_ops = NULL;
@@ -147,4 +147,20 @@ struct dsa_master *dsa_master_create(struct dsa_port *port,
 	master->netdev = netdev;
 
 	return master;
+}
+
+int dsa_master_setup(struct dsa_master *master)
+{
+	int err;
+
+	err = dsa_master_ethtool_setup(master);
+	if (err)
+		return err;
+
+	return 0;
+}
+
+void dsa_master_restore(struct dsa_master *master)
+{
+	dsa_master_ethtool_restore(master);
 }

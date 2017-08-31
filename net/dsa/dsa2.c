@@ -434,7 +434,7 @@ static int dsa_dst_apply(struct dsa_switch_tree *dst)
 	}
 
 	if (dst->master) {
-		err = dsa_master_ethtool_setup(dst->master);
+		err = dsa_master_setup(dst->master);
 		if (err)
 			return err;
 	}
@@ -475,7 +475,7 @@ static void dsa_dst_unapply(struct dsa_switch_tree *dst)
 	}
 
 	if (dst->master) {
-		dsa_master_ethtool_restore(dst->master);
+		dsa_master_restore(dst->master);
 		dst->master = NULL;
 	}
 
