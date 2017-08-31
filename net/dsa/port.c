@@ -173,9 +173,9 @@ int dsa_port_fdb_del(struct dsa_port *dp, const unsigned char *addr,
 	return dsa_port_notify(dp, DSA_NOTIFIER_FDB_DEL, &info);
 }
 
-int dsa_port_mdb_add(struct dsa_port *dp,
-		     const struct switchdev_obj_port_mdb *mdb,
-		     struct switchdev_trans *trans)
+static int dsa_port_mdb_add(struct dsa_port *dp,
+			    const struct switchdev_obj_port_mdb *mdb,
+			    struct switchdev_trans *trans)
 {
 	struct dsa_notifier_mdb_info info = {
 		.sw_index = dp->ds->index,
@@ -187,8 +187,8 @@ int dsa_port_mdb_add(struct dsa_port *dp,
 	return dsa_port_notify(dp, DSA_NOTIFIER_MDB_ADD, &info);
 }
 
-int dsa_port_mdb_del(struct dsa_port *dp,
-		     const struct switchdev_obj_port_mdb *mdb)
+static int dsa_port_mdb_del(struct dsa_port *dp,
+			    const struct switchdev_obj_port_mdb *mdb)
 {
 	struct dsa_notifier_mdb_info info = {
 		.sw_index = dp->ds->index,
@@ -199,9 +199,9 @@ int dsa_port_mdb_del(struct dsa_port *dp,
 	return dsa_port_notify(dp, DSA_NOTIFIER_MDB_DEL, &info);
 }
 
-int dsa_port_vlan_add(struct dsa_port *dp,
-		      const struct switchdev_obj_port_vlan *vlan,
-		      struct switchdev_trans *trans)
+static int dsa_port_vlan_add(struct dsa_port *dp,
+			     const struct switchdev_obj_port_vlan *vlan,
+			     struct switchdev_trans *trans)
 {
 	struct dsa_notifier_vlan_info info = {
 		.sw_index = dp->ds->index,
@@ -213,8 +213,8 @@ int dsa_port_vlan_add(struct dsa_port *dp,
 	return dsa_port_notify(dp, DSA_NOTIFIER_VLAN_ADD, &info);
 }
 
-int dsa_port_vlan_del(struct dsa_port *dp,
-		      const struct switchdev_obj_port_vlan *vlan)
+static int dsa_port_vlan_del(struct dsa_port *dp,
+			     const struct switchdev_obj_port_vlan *vlan)
 {
 	struct dsa_notifier_vlan_info info = {
 		.sw_index = dp->ds->index,
@@ -223,4 +223,31 @@ int dsa_port_vlan_del(struct dsa_port *dp,
 	};
 
 	return dsa_port_notify(dp, DSA_NOTIFIER_VLAN_DEL, &info);
+}
+
+int dsa_port_obj_add(struct dsa_port *port, const struct switchdev_obj *obj,
+		     struct switchdev_trans *trans)
+{
+	switch (obj->id) {
+	case SWITCHDEV_OBJ_ID_PORT_MDB:
+		return dsa_port_mdb_add(port, SWITCHDEV_OBJ_PORT_MDB(obj),
+					trans);
+	case SWITCHDEV_OBJ_ID_PORT_VLAN:
+		return dsa_port_vlan_add(port, SWITCHDEV_OBJ_PORT_VLAN(obj),
+					 trans);
+	default:
+		return -EOPNOTSUPP;
+	}
+}
+
+int dsa_port_obj_del(struct dsa_port *port, const struct switchdev_obj *obj)
+{
+	switch (obj->id) {
+	case SWITCHDEV_OBJ_ID_PORT_MDB:
+		return dsa_port_mdb_del(port, SWITCHDEV_OBJ_PORT_MDB(obj));
+	case SWITCHDEV_OBJ_ID_PORT_VLAN:
+		return dsa_port_vlan_del(port, SWITCHDEV_OBJ_PORT_VLAN(obj));
+	default:
+		return -EOPNOTSUPP;
+	}
 }

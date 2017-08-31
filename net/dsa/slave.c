@@ -318,50 +318,16 @@ static int dsa_slave_port_obj_add(struct net_device *dev,
 				  struct switchdev_trans *trans)
 {
 	struct dsa_slave_priv *p = netdev_priv(dev);
-	struct dsa_port *dp = p->dp;
-	int err;
 
-	/* For the prepare phase, ensure the full set of changes is feasable in
-	 * one go in order to signal a failure properly. If an operation is not
-	 * supported, return -EOPNOTSUPP.
-	 */
-
-	switch (obj->id) {
-	case SWITCHDEV_OBJ_ID_PORT_MDB:
-		err = dsa_port_mdb_add(dp, SWITCHDEV_OBJ_PORT_MDB(obj), trans);
-		break;
-	case SWITCHDEV_OBJ_ID_PORT_VLAN:
-		err = dsa_port_vlan_add(dp, SWITCHDEV_OBJ_PORT_VLAN(obj),
-					trans);
-		break;
-	default:
-		err = -EOPNOTSUPP;
-		break;
-	}
-
-	return err;
+	return dsa_port_obj_add(p->dp, obj, trans);
 }
 
 static int dsa_slave_port_obj_del(struct net_device *dev,
 				  const struct switchdev_obj *obj)
 {
 	struct dsa_slave_priv *p = netdev_priv(dev);
-	struct dsa_port *dp = p->dp;
-	int err;
 
-	switch (obj->id) {
-	case SWITCHDEV_OBJ_ID_PORT_MDB:
-		err = dsa_port_mdb_del(dp, SWITCHDEV_OBJ_PORT_MDB(obj));
-		break;
-	case SWITCHDEV_OBJ_ID_PORT_VLAN:
-		err = dsa_port_vlan_del(dp, SWITCHDEV_OBJ_PORT_VLAN(obj));
-		break;
-	default:
-		err = -EOPNOTSUPP;
-		break;
-	}
-
-	return err;
+	return dsa_port_obj_del(p->dp, obj);
 }
 
 static int dsa_slave_port_attr_get(struct net_device *dev,

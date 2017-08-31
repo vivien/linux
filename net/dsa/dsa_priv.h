@@ -133,16 +133,10 @@ int dsa_port_fdb_add(struct dsa_port *dp, const unsigned char *addr,
 		     u16 vid);
 int dsa_port_fdb_del(struct dsa_port *dp, const unsigned char *addr,
 		     u16 vid);
-int dsa_port_mdb_add(struct dsa_port *dp,
-		     const struct switchdev_obj_port_mdb *mdb,
+int dsa_port_obj_add(struct dsa_port *port, const struct switchdev_obj *obj,
 		     struct switchdev_trans *trans);
-int dsa_port_mdb_del(struct dsa_port *dp,
-		     const struct switchdev_obj_port_mdb *mdb);
-int dsa_port_vlan_add(struct dsa_port *dp,
-		      const struct switchdev_obj_port_vlan *vlan,
-		      struct switchdev_trans *trans);
-int dsa_port_vlan_del(struct dsa_port *dp,
-		      const struct switchdev_obj_port_vlan *vlan);
+int dsa_port_obj_del(struct dsa_port *port, const struct switchdev_obj *obj);
+
 /* slave.c */
 extern const struct dsa_device_ops notag_netdev_ops;
 void dsa_slave_mii_bus_init(struct dsa_switch *ds);
