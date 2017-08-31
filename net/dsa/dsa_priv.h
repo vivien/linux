@@ -66,6 +66,8 @@ struct dsa_notifier_vlan_info {
 };
 
 struct dsa_slave_priv {
+	struct dsa_master *master;
+
 	/* Copy of the master xmit tagging op for faster access in hot path */
 	struct sk_buff *	(*xmit)(struct sk_buff *skb,
 					struct net_device *dev);
@@ -178,10 +180,5 @@ extern const struct dsa_device_ops qca_netdev_ops;
 
 /* tag_trailer.c */
 extern const struct dsa_device_ops trailer_netdev_ops;
-
-static inline struct net_device *dsa_master_netdev(struct dsa_slave_priv *p)
-{
-	return p->dp->ds->dst->master->netdev;
-}
 
 #endif
