@@ -178,6 +178,9 @@ struct dsa_master {
 
 	/* Original copy of the master netdev ethtool_ops */
 	const struct ethtool_ops *orig_ethtool_ops;
+
+	/* Original copy of the master netdev switchdev_ops */
+	const struct switchdev_ops *orig_switchdev_ops;
 };
 
 struct dsa_port {

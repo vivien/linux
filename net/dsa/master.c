@@ -114,6 +114,66 @@ static void dsa_master_ethtool_restore(struct dsa_master *master)
 	master->orig_ethtool_ops = NULL;
 }
 
+static int dsa_master_obj_add(struct net_device *dev,
+			      const struct switchdev_obj *obj,
+			      struct switchdev_trans *trans)
+{
+	struct dsa_master *master = dev->dsa_ptr;
+	const struct switchdev_ops *ops = master->orig_switchdev_ops;
+	int err;
+
+	if (ops && ops->switchdev_port_obj_add) {
+		err = ops->switchdev_port_obj_add(dev, obj, trans);
+		if (err)
+			return err;
+	}
+
+	return dsa_port_obj_add(master->port, obj, trans);
+}
+
+static int dsa_master_obj_del(struct net_device *dev,
+			      const struct switchdev_obj *obj)
+{
+	struct dsa_master *master = dev->dsa_ptr;
+	const struct switchdev_ops *ops = master->orig_switchdev_ops;
+	int err;
+
+	if (ops && ops->switchdev_port_obj_del) {
+		err = ops->switchdev_port_obj_del(dev, obj);
+		if (err)
+			return err;
+	}
+
+	return dsa_port_obj_del(master->port, obj);
+}
+
+static int dsa_master_switchdev_setup(struct dsa_master *master)
+{
+	struct device *dev = master->port->ds->dev;
+	struct switchdev_ops *ops;
+
+	ops = devm_kzalloc(dev, sizeof(*ops), GFP_KERNEL);
+	if (!ops)
+		return -ENOMEM;
+
+	master->orig_switchdev_ops = master->netdev->switchdev_ops;
+	if (master->orig_switchdev_ops)
+		memcpy(ops, master->orig_switchdev_ops, sizeof(*ops));
+
+	ops->switchdev_port_obj_add = dsa_master_obj_add;
+	ops->switchdev_port_obj_del = dsa_master_obj_del;
+
+	master->netdev->switchdev_ops = ops;
+
+	return 0;
+}
+
+static void dsa_master_switchdev_restore(struct dsa_master *master)
+{
+	master->netdev->switchdev_ops = master->orig_switchdev_ops;
+	master->orig_switchdev_ops = NULL;
+}
+
 int dsa_master_tag_protocol(struct dsa_master *master)
 {
 	struct dsa_switch *ds = master->port->ds;
@@ -157,10 +217,15 @@ int dsa_master_setup(struct dsa_master *master)
 	if (err)
 		return err;
 
+	err = dsa_master_switchdev_setup(master);
+	if (err)
+		return err;
+
 	return 0;
 }
 
 void dsa_master_restore(struct dsa_master *master)
 {
+	dsa_master_switchdev_restore(master);
 	dsa_master_ethtool_restore(master);
 }
