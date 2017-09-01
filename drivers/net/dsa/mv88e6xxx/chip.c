@@ -1117,7 +1117,7 @@ static int mv88e6xxx_port_check_hw_vlan(struct dsa_switch *ds, int port,
 			break;
 
 		for (i = 0; i < mv88e6xxx_num_ports(chip); ++i) {
-			if (dsa_is_dsa_port(ds, i) || dsa_is_cpu_port(ds, i))
+			if (dsa_is_dsa_port(ds, i))
 				continue;
 
 			if (!ds->ports[port].netdev)
@@ -1219,7 +1219,7 @@ static void mv88e6xxx_port_vlan_add(struct dsa_switch *ds, int port,
 	if (!chip->info->max_vid)
 		return;
 
-	if (dsa_is_dsa_port(ds, port) || dsa_is_cpu_port(ds, port))
+	if (dsa_is_dsa_port(ds, port))
 		member = MV88E6XXX_G1_VTU_DATA_MEMBER_TAG_UNMODIFIED;
 	else if (untagged)
 		member = MV88E6XXX_G1_VTU_DATA_MEMBER_TAG_UNTAGGED;
