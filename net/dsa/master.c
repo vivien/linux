@@ -19,11 +19,12 @@ static void dsa_master_get_ethtool_stats(struct net_device *dev,
 	struct dsa_master *master = dev->dsa_ptr;
 	struct dsa_port *port = master->port;
 	struct dsa_switch *ds = port->ds;
+	const struct ethtool_ops *ops = master->orig_ethtool_ops;
 	int count = 0;
 
-	if (master->ethtool_ops.get_sset_count) {
-		count = master->ethtool_ops.get_sset_count(dev, ETH_SS_STATS);
-		master->ethtool_ops.get_ethtool_stats(dev, stats, data);
+	if (ops && ops->get_sset_count && ops->get_ethtool_stats) {
+		count = ops->get_sset_count(dev, ETH_SS_STATS);
+		ops->get_ethtool_stats(dev, stats, data);
 	}
 
 	if (ds->ops->get_ethtool_stats)
@@ -35,10 +36,11 @@ static int dsa_master_get_sset_count(struct net_device *dev, int sset)
 	struct dsa_master *master = dev->dsa_ptr;
 	struct dsa_port *port = master->port;
 	struct dsa_switch *ds = port->ds;
+	const struct ethtool_ops *ops = master->orig_ethtool_ops;
 	int count = 0;
 
-	if (master->ethtool_ops.get_sset_count)
-		count += master->ethtool_ops.get_sset_count(dev, sset);
+	if (ops && ops->get_sset_count)
+		count += ops->get_sset_count(dev, sset);
 
 	if (sset == ETH_SS_STATS && ds->ops->get_sset_count)
 		count += ds->ops->get_sset_count(ds);
@@ -52,6 +54,7 @@ static void dsa_master_get_strings(struct net_device *dev, uint32_t stringset,
 	struct dsa_master *master = dev->dsa_ptr;
 	struct dsa_port *port = master->port;
 	struct dsa_switch *ds = port->ds;
+	const struct ethtool_ops *ops = master->orig_ethtool_ops;
 	int len = ETH_GSTRING_LEN;
 	int mcount = 0, count;
 	unsigned int i;
@@ -62,9 +65,9 @@ static void dsa_master_get_strings(struct net_device *dev, uint32_t stringset,
 	/* We do not want to be NULL-terminated, since this is a prefix */
 	pfx[sizeof(pfx) - 1] = '_';
 
-	if (master->ethtool_ops.get_sset_count) {
-		mcount = master->ethtool_ops.get_sset_count(dev, ETH_SS_STATS);
-		master->ethtool_ops.get_strings(dev, stringset, data);
+	if (ops && ops->get_sset_count && ops->get_strings) {
+		mcount = ops->get_sset_count(dev, ETH_SS_STATS);
+		ops->get_strings(dev, stringset, data);
 	}
 
 	if (stringset == ETH_SS_STATS && ds->ops->get_strings) {
@@ -86,23 +89,21 @@ static void dsa_master_get_strings(struct net_device *dev, uint32_t stringset,
 int dsa_master_ethtool_setup(struct dsa_master *master)
 {
 	struct device *dev = master->port->ds->dev;
-	struct net_device *netdev = master->netdev;
 	struct ethtool_ops *ops;
 
 	ops = devm_kzalloc(dev, sizeof(*ops), GFP_KERNEL);
 	if (!ops)
 		return -ENOMEM;
 
-	/* Back up the original master netdev ethtool_ops */
-	master->orig_ethtool_ops = netdev->ethtool_ops;
-	memcpy(&master->ethtool_ops, master->orig_ethtool_ops, sizeof(*ops));
-	memcpy(ops, &master->ethtool_ops, sizeof(*ops));
+	master->orig_ethtool_ops = master->netdev->ethtool_ops;
+	if (master->orig_ethtool_ops)
+		memcpy(ops, master->orig_ethtool_ops, sizeof(*ops));
 
-	/* Change the master netdev ethtool_ops */
 	ops->get_sset_count = dsa_master_get_sset_count;
 	ops->get_ethtool_stats = dsa_master_get_ethtool_stats;
 	ops->get_strings = dsa_master_get_strings;
-	netdev->ethtool_ops = ops;
+
+	master->netdev->ethtool_ops = ops;
 
 	return 0;
 }
