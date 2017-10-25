@@ -117,30 +117,24 @@ static bool dsa_port_is_user(struct dsa_port *dp)
 	return dp->type == DSA_PORT_TYPE_USER;
 }
 
-static bool dsa_ds_find_port_dn(struct dsa_switch *ds,
-				struct device_node *port)
-{
-	u32 index;
-
-	for (index = 0; index < ds->num_ports; index++)
-		if (ds->ports[index].dn == port)
-			return true;
-	return false;
-}
-
-static struct dsa_switch *dsa_dst_find_port_dn(struct dsa_switch_tree *dst,
-					       struct device_node *port)
+static struct dsa_port *dsa_tree_find_port_by_node(struct dsa_switch_tree *dst,
+						   struct device_node *dn)
 {
 	struct dsa_switch *ds;
-	u32 index;
+	struct dsa_port *dp;
+	int device, port;
 
-	for (index = 0; index < DSA_MAX_SWITCHES; index++) {
-		ds = dst->ds[index];
+	for (device = 0; device < DSA_MAX_SWITCHES; device++) {
+		ds = dst->ds[device];
 		if (!ds)
 			continue;
 
-		if (dsa_ds_find_port_dn(ds, port))
-			return ds;
+		for (port = 0; port < ds->num_ports; port++) {
+			dp = &ds->ports[port];
+
+			if (dp->dn == dn)
+				return dp;
+		}
 	}
 
 	return NULL;
@@ -151,22 +145,19 @@ static int dsa_port_complete(struct dsa_switch_tree *dst,
 			     struct dsa_port *port,
 			     u32 src_port)
 {
-	struct device_node *link;
-	int index;
-	struct dsa_switch *dst_ds;
+	struct device_node *dn = port->dn;
+	struct of_phandle_iterator it;
+	struct dsa_port *link_dp;
+	int err;
 
-	for (index = 0;; index++) {
-		link = of_parse_phandle(port->dn, "link", index);
-		if (!link)
-			break;
-
-		dst_ds = dsa_dst_find_port_dn(dst, link);
-		of_node_put(link);
-
-		if (!dst_ds)
+	of_for_each_phandle(&it, err, dn, "link", NULL, 0) {
+		link_dp = dsa_tree_find_port_by_node(dst, it.node);
+		if (!link_dp) {
+			of_node_put(it.node);
 			return 1;
+		}
 
-		src_ds->rtable[dst_ds->index] = src_port;
+		src_ds->rtable[link_dp->ds->index] = src_port;
 	}
 
 	return 0;
