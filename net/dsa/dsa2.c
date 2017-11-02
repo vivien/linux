@@ -490,6 +490,8 @@ static void dsa_tree_teardown(struct dsa_switch_tree *dst)
 static void dsa_tree_remove_switch(struct dsa_switch_tree *dst,
 				   unsigned int index)
 {
+	dsa_tree_teardown(dst);
+
 	dst->ds[index] = NULL;
 	dsa_tree_put(dst);
 }
@@ -498,6 +500,7 @@ static int dsa_tree_add_switch(struct dsa_switch_tree *dst,
 			       struct dsa_switch *ds)
 {
 	unsigned int index = ds->index;
+	int err;
 
 	if (dst->ds[index])
 		return -EBUSY;
@@ -505,7 +508,11 @@ static int dsa_tree_add_switch(struct dsa_switch_tree *dst,
 	dsa_tree_get(dst);
 	dst->ds[index] = ds;
 
-	return 0;
+	err = dsa_tree_setup(dst);
+	if (err)
+		dsa_tree_remove_switch(dst, index);
+
+	return err;
 }
 
 static int dsa_port_parse_user(struct dsa_port *dp, const char *name)
@@ -710,7 +717,6 @@ static int _dsa_register_switch(struct dsa_switch *ds)
 	struct dsa_chip_data *pdata = ds->dev->platform_data;
 	struct device_node *np = ds->dev->of_node;
 	struct dsa_switch_tree *dst;
-	unsigned int index;
 	int err;
 
 	if (np)
@@ -723,20 +729,9 @@ static int _dsa_register_switch(struct dsa_switch *ds)
 	if (err)
 		return err;
 
-	index = ds->index;
 	dst = ds->dst;
 
-	err = dsa_tree_add_switch(dst, ds);
-	if (err)
-		return err;
-
-	err = dsa_tree_setup(dst);
-	if (err) {
-		dsa_tree_teardown(dst);
-		dsa_tree_remove_switch(dst, index);
-	}
-
-	return err;
+	return dsa_tree_add_switch(dst, ds);
 }
 
 struct dsa_switch *dsa_switch_alloc(struct device *dev, size_t n)
@@ -777,8 +772,6 @@ static void _dsa_unregister_switch(struct dsa_switch *ds)
 {
 	struct dsa_switch_tree *dst = ds->dst;
 	unsigned int index = ds->index;
-
-	dsa_tree_teardown(dst);
 
 	dsa_tree_remove_switch(dst, index);
 }
