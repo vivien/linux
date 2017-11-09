@@ -477,6 +477,8 @@ struct mii_bus *dsa_host_dev_to_mii_bus(struct device *dev);
 
 struct net_device *dsa_dev_to_net_device(struct device *dev);
 
+bool netdev_is_dsa_slave(struct net_device *dev);
+
 /* Keep inline for faster access in hot path */
 static inline bool netdev_is_dsa_master(struct net_device *dev)
 {
