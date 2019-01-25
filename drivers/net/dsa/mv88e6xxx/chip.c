@@ -46,6 +46,19 @@
 #include "serdes.h"
 
 #ifdef CONFIG_BRIDGE_BPDU_BYPASS
+static int mv88e6xxx_bpdu_bypass_add_mac_master(struct mv88e6xxx_chip *chip, int fid)
+{
+	u8 *addr = chip->ds->dst->cpu_dp->master->dev_addr;
+	int port = chip->ds->dst->cpu_dp->index;
+	struct mv88e6xxx_atu_entry entry;
+
+	ether_addr_copy(entry.mac, addr);
+	entry.portvec = BIT(port);
+	entry.state = 0x8;
+
+	return mv88e6xxx_g1_atu_loadpurge(chip, fid, &entry);
+}
+
 static int mv88e6xxx_bpdu_bypass_add_mac_bpdu(struct mv88e6xxx_chip *chip, int fid)
 {
 	u8 addr[6] = { 0x01, 0x80, 0xc2, 0x00, 0x00, 0x00 };
@@ -77,6 +90,10 @@ static int mv88e6xxx_bpdu_bypass_add_fixed_macs(struct mv88e6xxx_chip *chip)
 	 * state.
 	 */
 	for (fid = 0; fid < 10; fid++) {
+		err = mv88e6xxx_bpdu_bypass_add_mac_master(chip, fid);
+		if (err)
+			return err;
+
 		err = mv88e6xxx_bpdu_bypass_add_mac_bpdu(chip, fid);
 		if (err)
 			return err;
@@ -2629,6 +2646,7 @@ static int mv88e6xxx_setup(struct dsa_switch *ds)
 		}
 	}
 
+#ifndef CONFIG_BRIDGE_BPDU_BYPASS
 	/* Setup Switch Port Registers */
 	for (i = 0; i < mv88e6xxx_num_ports(chip); i++) {
 		if (dsa_is_unused_port(ds, i))
@@ -2638,9 +2656,11 @@ static int mv88e6xxx_setup(struct dsa_switch *ds)
 		if (err)
 			goto unlock;
 	}
+#else /* CONFIG_BRIDGE_BPDU_BYPASS */
 	err = mv88e6xxx_bpdu_bypass_add_fixed_macs(chip);
 	if (err)
     		goto unlock;
+#endif /* CONFIG_BRIDGE_BPDU_BYPASS */
 
 	err = mv88e6xxx_irl_setup(chip);
 	if (err)
@@ -4953,11 +4973,13 @@ static int mv88e6xxx_probe(struct mdio_device *mdiodev)
 			chip->eeprom_len = pdata->eeprom_len;
 	}
 
+#ifndef CONFIG_BRIDGE_BPDU_BYPASS
 	mutex_lock(&chip->reg_lock);
 	err = mv88e6xxx_switch_reset(chip);
 	mutex_unlock(&chip->reg_lock);
 	if (err)
 		goto out;
+#endif /* CONFIG_BRIDGE_BPDU_BYPASS */
 
 	chip->irq = of_irq_get(np, 0);
 	if (chip->irq == -EPROBE_DEFER) {
