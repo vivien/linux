@@ -417,7 +417,11 @@ static void br_make_forwarding(struct net_bridge_port *p)
 	if (p->state != BR_STATE_BLOCKING)
 		return;
 
+#ifdef CONFIG_BRIDGE_BPDU_BYPASS
+	if (br->forward_delay == 0) {
+#else /* CONFIG_BRIDGE_BPDU_BYPASS */
 	if (br->stp_enabled == BR_NO_STP || br->forward_delay == 0) {
+#endif /* CONFIG_BRIDGE_BPDU_BYPASS */
 		br_set_state(p, BR_STATE_FORWARDING);
 		br_topology_change_detection(br);
 		del_timer(&p->forward_delay_timer);
