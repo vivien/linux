@@ -33,6 +33,13 @@ config BRIDGE
 
 	  If unsure, say N.
 
+config BRIDGE_BPDU_BYPASS
+	bool "BPDU Bypass"
+	depends on BRIDGE
+	default n
+	---help---
+	  If you say Y here, then the Ethernet bridge will enforce BPDU bypass.
+
 config BRIDGE_IGMP_SNOOPING
 	bool "IGMP/MLD snooping"
 	depends on BRIDGE
