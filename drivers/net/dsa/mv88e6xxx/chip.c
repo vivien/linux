@@ -2678,9 +2678,11 @@ static int mv88e6xxx_setup(struct dsa_switch *ds)
 	if (err)
 		goto unlock;
 
+#ifndef CONFIG_BRIDGE_BPDU_BYPASS
 	err = mv88e6xxx_rsvd2cpu_setup(chip);
 	if (err)
 		goto unlock;
+#endif /* CONFIG_BRIDGE_BPDU_BYPASS */
 
 	err = mv88e6xxx_trunk_setup(chip);
 	if (err)
