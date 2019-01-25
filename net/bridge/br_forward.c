@@ -197,6 +197,11 @@ void br_flood(struct net_bridge *br, struct sk_buff *skb,
 	struct net_bridge_port *prev = NULL;
 	struct net_bridge_port *p;
 
+#ifdef CONFIG_BRIDGE_BPDU_BYPASS
+	if (!local_orig)
+		goto out;
+#endif /* CONFIG_BRIDGE_BPDU_BYPASS */
+
 	list_for_each_entry_rcu(p, &br->port_list, list) {
 		/* Do not flood unicast traffic to ports that turn it off, nor
 		 * other traffic if flood off, except for traffic we originate
