@@ -281,6 +281,18 @@ int mv88e6xxx_g1_atu_flush(struct mv88e6xxx_chip *chip, u16 fid, bool all)
 	return mv88e6xxx_g1_atu_flushmove(chip, fid, &entry, all);
 }
 
+#ifdef CONFIG_BRIDGE_BPDU_BYPASS
+int mv88e6xxx_g1_atu_flush_port(struct mv88e6xxx_chip *chip, int port, bool all)
+{
+	struct mv88e6xxx_atu_entry entry = {
+		.state = 0, /* Null EntryState means Flush */
+		.portvec = BIT(port), /* FIXME port or BIT(port)? */
+	};
+
+	return mv88e6xxx_g1_atu_flushmove(chip, 0, &entry, all);
+}
+#endif /* CONFIG_BRIDGE_BPDU_BYPASS */
+
 static int mv88e6xxx_g1_atu_move(struct mv88e6xxx_chip *chip, u16 fid,
 				 int from_port, int to_port, bool all)
 {

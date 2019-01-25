@@ -45,6 +45,46 @@
 #include "ptp.h"
 #include "serdes.h"
 
+#ifdef CONFIG_BRIDGE_BPDU_BYPASS
+static int mv88e6xxx_bpdu_bypass_add_mac_bpdu(struct mv88e6xxx_chip *chip, int fid)
+{
+	u8 addr[6] = { 0x01, 0x80, 0xc2, 0x00, 0x00, 0x00 };
+	struct mv88e6xxx_atu_entry entry;
+
+	ether_addr_copy(entry.mac, addr);
+	entry.portvec = BIT(3) | BIT(4); /* RDU1 netleft and netright */
+	entry.state = MV88E6XXX_G1_ATU_DATA_STATE_MC_MGMT;
+
+	return mv88e6xxx_g1_atu_loadpurge(chip, fid, &entry);
+}
+
+extern int mv88e6xxx_g1_atu_flush_port(struct mv88e6xxx_chip *chip, int port, bool all);
+
+static int mv88e6xxx_bpdu_bypass_add_fixed_macs(struct mv88e6xxx_chip *chip)
+{
+	int port = chip->ds->dst->cpu_dp->index;
+	int fid;
+	int err;
+
+	/* Flush all ATU entries before setting hardcoded MACs */
+	err = mv88e6xxx_g1_atu_flush_port(chip, port, true);
+	if (err)
+		return err;
+
+	/* Add a static entry to the ATU database with the MAC address of
+	 * an STP BPDU for netleft and netright to support passing BPDUs
+	 * through the switch when the port state is not in the forwarding
+	 * state.
+	 */
+	for (fid = 0; fid < 10; fid++) {
+		err = mv88e6xxx_bpdu_bypass_add_mac_bpdu(chip, fid);
+		if (err)
+			return err;
+	}
+
+	return 0;
+}
+
 static void assert_reg_lock(struct mv88e6xxx_chip *chip)
 {
 	if (unlikely(!mutex_is_locked(&chip->reg_lock))) {
@@ -2598,6 +2638,9 @@ static int mv88e6xxx_setup(struct dsa_switch *ds)
 		if (err)
 			goto unlock;
 	}
+	err = mv88e6xxx_bpdu_bypass_add_fixed_macs(chip);
+	if (err)
+    		goto unlock;
 
 	err = mv88e6xxx_irl_setup(chip);
 	if (err)
