@@ -634,12 +634,24 @@ int mv88e6xxx_port_set_state(struct mv88e6xxx_chip *chip, int port, u8 state)
 		break;
 	case BR_STATE_FORWARDING:
 		state = MV88E6XXX_PORT_CTL0_STATE_FORWARDING;
+#ifdef BRIDGE_BPDU_BYPASS
+		chip->ports[port].bpdu_bypass = false;
+#endif /* BRIDGE_BPDU_BYPASS */
 		break;
 	default:
 		return -EINVAL;
 	}
 
+#ifdef BRIDGE_BPDU_BYPASS
+	if (chip->ports[port].bpdu_bypass) {
+		dev_info(chip->dev, "%s: port = %d force hw_state = 3 commanded state = %d\n", __func__, port, state);
+		reg |= MV88E6XXX_PORT_CTL0_STATE_FORWARDING;
+	} else {
+		reg |= state;
+	}
+#else /* BRIDGE_BPDU_BYPASS */
 	reg |= state;
+#endif /* BRIDGE_BPDU_BYPASS */
 
 	err = mv88e6xxx_port_write(chip, port, MV88E6XXX_PORT_CTL0, reg);
 	if (err)

@@ -102,6 +102,63 @@ static int mv88e6xxx_bpdu_bypass_add_fixed_macs(struct mv88e6xxx_chip *chip)
 	return 0;
 }
 
+static bool mv88e6xxx_bpdu_bypass_has_already_booted(struct mv88e6xxx_chip *chip)
+{
+	u16 val;
+	int err;
+
+	err = mv88e6xxx_g2_read(chip, 0x0b, &val);
+	if (err)
+		return false;
+
+	return val & 0x0001;
+}
+
+void mv88e6xxx_bpdu_bypass_timer_callback(struct timer_list *timer)
+{
+	struct mv88e6xxx_chip *chip = from_timer(chip, timer, bpdu_bypass_timer);
+	int port;
+	int err;
+
+	dev_info(chip->dev, "%s: called\n", __func__);
+
+	for (port = 0; port < mv88e6xxx_num_ports(chip); port++)
+		chip->ports[port].bpdu_bypass = false;
+
+	err = del_timer(timer);
+	if (err)
+		dev_info(chip->dev, "%s: the timer is still in use...\n", __func__);
+
+	dev_info(chip->dev, "%s: timer module uninstalling\n", __func__);
+}
+
+static int mv88e6xxx_bpdu_bypass_setup(struct mv88e6xxx_chip *chip)
+{
+	u16 state;
+	int port;
+	int err;
+
+	for (port = 0; port < mv88e6xxx_num_ports(chip); port++) {
+		err = mv88e6xxx_port_read(chip, port, MV88E6XXX_PORT_CTL0, &state);
+		if (err)
+			return err;
+
+		state &= ~MV88E6XXX_PORT_CTL0_STATE_MASK;
+
+		if (state == MV88E6XXX_PORT_CTL0_STATE_FORWARDING)
+			chip->ports[port].bpdu_bypass = true;
+	}
+
+	dev_info(chip->dev, "%s: starting timer to disable BPDU forwarding\n", __func__);
+	timer_setup(&chip->bpdu_bypass_timer, mv88e6xxx_bpdu_bypass_timer_callback, 0);
+	err = mod_timer(&chip->bpdu_bypass_timer, jiffies + msecs_to_jiffies(30000));
+	if (err)
+		dev_info(chip->dev, "%s: mod_timer failed: %d\n", __func__, err);
+
+	return mv88e6xxx_bpdu_bypass_add_fixed_macs(chip);
+}
+#endif /* CONFIG_BRIDGE_BPDU_BYPASS */
+
 static void assert_reg_lock(struct mv88e6xxx_chip *chip)
 {
 	if (unlikely(!mutex_is_locked(&chip->reg_lock))) {
@@ -2628,6 +2685,16 @@ static int mv88e6xxx_setup(struct dsa_switch *ds)
 	ds->slave_mii_bus = mv88e6xxx_default_mdio_bus(chip);
 
 	mutex_lock(&chip->reg_lock);
+
+#ifdef CONFIG_BRIDGE_BPDU_BYPASS
+	if (mv88e6xxx_bpdu_bypass_has_already_booted(chip)) {
+		dev_info(chip->dev, "%s: switch has already booted\n", __func__);
+		err = mv88e6xxx_bpdu_bypass_setup(chip);
+		goto unlock;
+	} else {
+		dev_info(chip->dev, "%s: switch is coming up fresh\n", __func__);
+	}
+#endif /* CONFIG_BRIDGE_BPDU_BYPASS */
 
 	if (chip->info->ops->setup_errata) {
 		err = chip->info->ops->setup_errata(chip);

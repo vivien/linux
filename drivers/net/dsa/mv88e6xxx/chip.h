@@ -202,6 +202,9 @@ struct mv88e6xxx_port {
 	u64 vtu_miss_violation;
 	u8 cmode;
 	int serdes_irq;
+#ifdef CONFIG_BRIDGE_BPDU_BYPASS
+	bool bpdu_bypass;
+#endif /* CONFIG_BRIDGE_BPDU_BYPASS */
 };
 
 struct mv88e6xxx_chip {
@@ -264,6 +267,10 @@ struct mv88e6xxx_chip {
 	int vtu_prob_irq;
 	struct kthread_worker *kworker;
 	struct kthread_delayed_work irq_poll_work;
+
+#ifdef CONFIG_BRIDGE_BPDU_BYPASS
+	struct timer_list bpdu_bypass_timer;
+#endif /* CONFIG_BRIDGE_BPDU_BYPASS */
 
 	/* GPIO resources */
 	u8 gpio_data[2];
