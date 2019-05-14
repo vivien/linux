@@ -9,6 +9,7 @@
 #include "global3.h"
 #include "phy.h"
 #include "port.h"
+#include "rmu.h"
 #include "serdes.h"
 
 static struct dentry *mv88e6xxx_dbg_dir;
@@ -1184,6 +1185,84 @@ static void mv88e6xxx_dbg_init_tcam(struct mv88e6xxx_chip *chip)
 				  &mv88e6xxx_dbg_tcam_dump_ops);
 }
 
+static int mv88e6xxx_dbg_rmu_atu_read(struct mv88e6xxx_chip *chip, int id,
+				      struct seq_file *seq)
+{
+	struct mv88e6xxx_atu_entry entries[48];
+	u16 continue_code = 0;
+	int i, err;
+
+	do {
+		err = mv88e6xxx_rmu_dump_atu(chip, &continue_code, entries);
+		if (err)
+			return err;
+
+		for (i = 0; i < 48; i++) {
+			if (!entries[i].state)
+				return 0;
+
+			mv88e6xxx_dbg_atu_puts(chip, seq, entries + i);
+		}
+	} while (continue_code);
+
+	return 0;
+}
+
+static const struct mv88e6xxx_dbg_ops mv88e6xxx_dbg_rmu_atu_ops = {
+	.read = mv88e6xxx_dbg_rmu_atu_read,
+};
+
+static int mv88e6xxx_dbg_rmu_test_read(struct mv88e6xxx_chip *chip, int id,
+				       struct seq_file *seq)
+{
+	u16 data;
+	int err;
+
+	if (!chip->rmu_ops || !chip->rmu_ops->read)
+		return -EOPNOTSUPP;
+
+	err = chip->rmu_ops->read(chip, chip->info->port_base_addr + 3, 0x0F, &data);
+	if (err)
+		return err;
+
+	seq_printf(seq, "%4x\n", data);
+
+	return 0;
+}
+
+static int mv88e6xxx_dbg_rmu_test_write(struct mv88e6xxx_chip *chip, int id,
+					char *buf)
+{
+	int data;
+
+	if (sscanf(buf, "%x", &data) != 1)
+		return -EINVAL;
+
+	if (data > 0xffff)
+		return -ERANGE;
+
+	if (!chip->rmu_ops || !chip->rmu_ops->write)
+		return -EOPNOTSUPP;
+
+	return chip->rmu_ops->write(chip, chip->info->port_base_addr + 3, 0x0F, data);
+}
+
+static const struct mv88e6xxx_dbg_ops mv88e6xxx_dbg_rmu_test_ops = {
+	.read = mv88e6xxx_dbg_rmu_test_read,
+	.write = mv88e6xxx_dbg_rmu_test_write,
+};
+
+static void mv88e6xxx_dbg_init_rmu(struct mv88e6xxx_chip *chip)
+{
+	struct dentry *dir;
+
+	dir = debugfs_create_dir("rmu", chip->debugfs_dir);
+
+	mv88e6xxx_dbg_create_file(chip, dir, "atu", -1, &mv88e6xxx_dbg_rmu_atu_ops);
+
+	mv88e6xxx_dbg_create_file(chip, dir, "test", -1, &mv88e6xxx_dbg_rmu_test_ops);
+}
+
 static void mv88e6xxx_dbg_vtu_puts(struct mv88e6xxx_chip *chip, 
 				   struct seq_file *seq,
 				   const struct mv88e6xxx_vtu_entry *entry)
@@ -1287,6 +1366,8 @@ void mv88e6xxx_dbg_create(struct mv88e6xxx_chip *chip)
 		mv88e6xxx_dbg_create_file(chip, chip->debugfs_dir, "serdes",
 					  MV88E6XXX_DBG_REGS_ID_SERDES,
 					  &mv88e6xxx_dbg_regs_ops);
+
+	mv88e6xxx_dbg_init_rmu(chip);
 
 	mv88e6xxx_dbg_init_tcam(chip);
 
