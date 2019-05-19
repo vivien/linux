@@ -34,22 +34,4 @@
 int mv88e6xxx_smi_init(struct mv88e6xxx_chip *chip,
 		       struct mii_bus *bus, int sw_addr);
 
-static inline int mv88e6xxx_smi_read(struct mv88e6xxx_chip *chip,
-				     int dev, int reg, u16 *data)
-{
-	if (chip->smi_ops && chip->smi_ops->read)
-		return chip->smi_ops->read(chip, dev, reg, data);
-
-	return -EOPNOTSUPP;
-}
-
-static inline int mv88e6xxx_smi_write(struct mv88e6xxx_chip *chip,
-				      int dev, int reg, u16 data)
-{
-	if (chip->smi_ops && chip->smi_ops->write)
-		return chip->smi_ops->write(chip, dev, reg, data);
-
-	return -EOPNOTSUPP;
-}
-
 #endif /* _MV88E6XXX_SMI_H */

@@ -175,5 +175,8 @@ int mv88e6xxx_smi_init(struct mv88e6xxx_chip *chip,
 	chip->bus = bus;
 	chip->sw_addr = sw_addr;
 
+	if (!chip->ops)
+		chip->ops = chip->smi_ops;
+
 	return 0;
 }

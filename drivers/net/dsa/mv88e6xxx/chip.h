@@ -253,6 +253,9 @@ struct mv88e6xxx_chip {
 	/* This mutex protects the access to the switch registers */
 	struct mutex reg_lock;
 
+	/* The default registered bus operations */
+	const struct mv88e6xxx_bus_ops *ops;
+
 	/* The MII bus and the address on the bus that is used to
 	 * communication with the switch
 	 */

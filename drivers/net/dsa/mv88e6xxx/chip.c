@@ -55,7 +55,10 @@ int mv88e6xxx_read(struct mv88e6xxx_chip *chip, int addr, int reg, u16 *val)
 
 	assert_reg_lock(chip);
 
-	err = mv88e6xxx_smi_read(chip, addr, reg, val);
+	if (unlikely(!(chip->ops && chip->ops->read)))
+		return -EOPNOTSUPP;
+
+	err = chip->ops->read(chip, addr, reg, val);
 	if (err)
 		return err;
 
@@ -71,7 +74,10 @@ int mv88e6xxx_write(struct mv88e6xxx_chip *chip, int addr, int reg, u16 val)
 
 	assert_reg_lock(chip);
 
-	err = mv88e6xxx_smi_write(chip, addr, reg, val);
+	if (unlikely(!(chip->ops && chip->ops->write)))
+		return -EOPNOTSUPP;
+
+	err = chip->ops->write(chip, addr, reg, val);
 	if (err)
 		return err;
 
