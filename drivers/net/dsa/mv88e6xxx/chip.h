@@ -353,6 +353,8 @@ struct mv88e6xxx_chip {
 struct mv88e6xxx_bus_ops {
 	int (*read)(struct mv88e6xxx_chip *chip, int addr, int reg, u16 *val);
 	int (*write)(struct mv88e6xxx_chip *chip, int addr, int reg, u16 val);
+	int (*wait_bit)(struct mv88e6xxx_chip *chip, int addr, int reg,
+			int bit, int val);
 };
 
 struct mv88e6xxx_mdio_bus {
