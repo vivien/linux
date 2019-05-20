@@ -409,6 +409,9 @@ static int dsa_switch_setup(struct dsa_switch *ds)
 	if (err)
 		goto unregister_devlink;
 
+	skb_queue_head_init(&ds->xmit_queue);
+	INIT_WORK(&ds->xmit_work, dsa_switch_xmit_work);
+
 	err = ds->ops->setup(ds);
 	if (err < 0)
 		goto unregister_notifier;
@@ -451,6 +454,9 @@ static void dsa_switch_teardown(struct dsa_switch *ds)
 
 	if (ds->slave_mii_bus && ds->ops->phy_read)
 		mdiobus_unregister(ds->slave_mii_bus);
+
+	cancel_work_sync(&ds->xmit_work);
+	skb_queue_purge(&ds->xmit_queue);
 
 	dsa_switch_unregister_notifier(ds);
 

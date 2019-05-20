@@ -305,8 +305,13 @@ struct dsa_switch {
 	 */
 	bool			mtu_enforcement_ingress;
 
+	struct work_struct	xmit_work;
+	struct sk_buff_head	xmit_queue;
+
 	size_t num_ports;
 };
+
+void dsa_switch_xmit(struct dsa_switch *ds, struct sk_buff *skb);
 
 static inline struct dsa_port *dsa_to_port(struct dsa_switch *ds, int p)
 {

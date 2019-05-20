@@ -405,3 +405,20 @@ void dsa_switch_unregister_notifier(struct dsa_switch *ds)
 	if (err)
 		dev_err(ds->dev, "failed to unregister notifier (%d)\n", err);
 }
+
+void dsa_switch_xmit(struct dsa_switch *ds, struct sk_buff *skb)
+{
+	skb_queue_tail(&ds->xmit_queue, skb);
+	schedule_work(&ds->xmit_work);
+}
+
+void dsa_switch_xmit_work(struct work_struct *work)
+{
+	struct dsa_switch *ds;
+	struct sk_buff *skb;
+
+	ds = container_of(work, struct dsa_switch, xmit_work);
+
+	while ((skb = skb_dequeue(&ds->xmit_queue)) != NULL)
+		dev_queue_xmit(skb);
+}
