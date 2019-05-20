@@ -63,6 +63,7 @@ static struct sk_buff *dsa_xmit(struct sk_buff *skb, struct net_device *dev)
 static struct sk_buff *dsa_rcv(struct sk_buff *skb, struct net_device *dev,
 			       struct packet_type *pt)
 {
+	struct dsa_switch *ds;
 	u8 *dsa_header;
 	int source_device;
 	int source_port;
@@ -86,6 +87,11 @@ static struct sk_buff *dsa_rcv(struct sk_buff *skb, struct net_device *dev,
 	 */
 	source_device = dsa_header[0] & 0x1f;
 	source_port = (dsa_header[1] >> 3) & 0x1f;
+
+	/* Allow the target switch device to process the frame on its own */
+	ds = dsa_master_find_switch(dev, source_device);
+	if (ds && ds->ops->rcv && ds->ops->rcv(ds, skb))
+		return NULL;
 
 	skb->dev = dsa_master_find_slave(dev, source_device, source_port);
 	if (!skb->dev)
