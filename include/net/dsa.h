@@ -401,6 +401,19 @@ static inline bool dsa_is_upstream_port(struct dsa_switch *ds, int port)
 	return dsa_upstream_port(ds, port) == port;
 }
 
+static inline struct net_device *dsa_to_master(struct dsa_switch *ds, int port)
+{
+	const struct dsa_port *dp = dsa_to_port(ds, port);
+
+	if (dp->type == DSA_PORT_TYPE_CPU)
+		return dp->master;
+
+	if (dp->cpu_dp)
+		return dp->cpu_dp->master;
+
+	return NULL;
+}
+
 static inline bool dsa_port_is_vlan_filtering(const struct dsa_port *dp)
 {
 	const struct dsa_switch *ds = dp->ds;
