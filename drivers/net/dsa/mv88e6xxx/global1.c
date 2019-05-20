@@ -437,10 +437,68 @@ int mv88e6352_g1_rmu_disable(struct mv88e6xxx_chip *chip)
 				      MV88E6352_G1_CTL2_RMU_MODE_DISABLED);
 }
 
+int mv88e6352_g1_rmu_enable(struct mv88e6xxx_chip *chip, int port,
+			    bool da_check)
+{
+	u16 mask = MV88E6352_G1_CTL2_RMU_MODE_MASK | MV88E6352_G1_CTL2_DA_CHECK;
+	u16 val;
+
+	switch (port) {
+	case 4:
+		val = MV88E6352_G1_CTL2_RMU_MODE_PORT_4;
+		break;
+	case 5:
+		val = MV88E6352_G1_CTL2_RMU_MODE_PORT_5;
+		break;
+	case 6:
+		val = MV88E6352_G1_CTL2_RMU_MODE_PORT_6;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	if (da_check)
+		val |= MV88E6352_G1_CTL2_DA_CHECK;
+
+	return mv88e6xxx_g1_ctl2_mask(chip, mask, val);
+}
+
 int mv88e6390_g1_rmu_disable(struct mv88e6xxx_chip *chip)
 {
 	return mv88e6xxx_g1_ctl2_mask(chip, MV88E6390_G1_CTL2_RMU_MODE_MASK,
 				      MV88E6390_G1_CTL2_RMU_MODE_DISABLED);
+}
+
+int mv88e6390_g1_rmu_enable(struct mv88e6xxx_chip *chip, int port,
+			    bool da_check)
+{
+	u16 mask = MV88E6390_G1_CTL2_RMU_MODE_MASK | MV88E6352_G1_CTL2_DA_CHECK;
+	u16 val;
+
+	switch (port) {
+	case 0:
+		val = MV88E6390_G1_CTL2_RMU_MODE_PORT_0;
+		break;
+	case 1:
+		val = MV88E6390_G1_CTL2_RMU_MODE_PORT_1;
+		break;
+	case 9:
+		val = MV88E6390_G1_CTL2_RMU_MODE_PORT_9;
+		break;
+	case 10:
+		val = MV88E6390_G1_CTL2_RMU_MODE_PORT_10;
+		break;
+	default:
+		/* 88E6390X can enable RMU on all (E)DSA ports as well,
+		 * but let's request a specific port for the moment.
+		 */
+		return -EINVAL;
+	}
+
+	if (da_check)
+		val |= MV88E6352_G1_CTL2_DA_CHECK;
+
+	return mv88e6xxx_g1_ctl2_mask(chip, mask, val);
 }
 
 int mv88e6390_g1_stats_set_histogram(struct mv88e6xxx_chip *chip)

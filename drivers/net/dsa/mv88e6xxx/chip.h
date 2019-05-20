@@ -548,6 +548,7 @@ struct mv88e6xxx_ops {
 	const struct mv88e6xxx_avb_ops *avb_ops;
 
 	/* Remote Management Unit operations */
+	int (*rmu_enable)(struct mv88e6xxx_chip *chip, int port, bool da_check);
 	int (*rmu_disable)(struct mv88e6xxx_chip *chip);
 
 	/* Precision Time Protocol operations */
