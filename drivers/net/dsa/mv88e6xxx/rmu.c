@@ -15,6 +15,7 @@
 #include "rmu.h"
 
 #define MV88E6XXX_RMU_TIMEOUT (msecs_to_jiffies(1000))
+#define MV88E6XXX_RMU_DUMP_ATU_SIZE 48
 
 static int mv88e6xxx_rmu_wait_response(struct mv88e6xxx_chip *chip)
 {
@@ -267,6 +268,65 @@ static int mv88e6xxx_rmu_reg_wait_bit(struct mv88e6xxx_chip *chip,
 	return err;
 }
 
+int mv88e6xxx_rmu_dump_atu(struct mv88e6xxx_chip *chip, u16 *continue_code,
+			   struct mv88e6xxx_atu_entry *entries)
+{
+	unsigned char request_data[2];
+	int i, err;
+
+	request_data[0] = *continue_code >> 8;
+	request_data[1] = *continue_code & 0xff;
+
+	err = mv88e6xxx_rmu_request(chip, MV88E6XXX_RMU_REQUEST_CODE_DUMP_ATU,
+				    request_data, sizeof(request_data));
+	if (err)
+		return err;
+
+	for (i = 0; i < MV88E6XXX_RMU_DUMP_ATU_SIZE; i++) {
+		if (chip->rmu_response_data_len < 10) {
+			kfree_skb(chip->rmu_response);
+			chip->rmu_response = NULL;
+			return -EINVAL;
+		}
+
+		entries[i].state = (chip->rmu_response_data[0] & 0xf0) >> 4;
+		entries[i].trunk = !!(chip->rmu_response_data[0] & 0x08);
+		entries[i].portvec = ((chip->rmu_response_data[0] & 0x7) << 8);
+		entries[i].portvec |= chip->rmu_response_data[1];
+		ether_addr_copy(entries[i].mac, &chip->rmu_response_data[2]);
+		entries[i].pri = (chip->rmu_response_data[8] & 0x70) >> 4;
+		entries[i].fid = ((chip->rmu_response_data[8] & 0x0f) << 8);
+		entries[i].fid |= chip->rmu_response_data[9];
+
+		chip->rmu_response_data += 10;
+		chip->rmu_response_data_len -= 10;
+
+		/* End of the list */
+		if (!entries[i].state) {
+			kfree_skb(chip->rmu_response);
+			chip->rmu_response = NULL;
+			return 0;
+		}
+	}
+
+	/* Retrieve Continue Code */
+	if (i == MV88E6XXX_RMU_DUMP_ATU_SIZE) {
+		if (chip->rmu_response_data_len < 2) {
+			kfree_skb(chip->rmu_response);
+			chip->rmu_response = NULL;
+			return -EINVAL;
+		}
+
+		*continue_code = (chip->rmu_response_data[0] << 8);
+		*continue_code |= chip->rmu_response_data[1];
+	}
+
+	kfree_skb(chip->rmu_response);
+	chip->rmu_response = NULL;
+
+	return err;
+}
+
 static const struct mv88e6xxx_bus_ops mv88e6xxx_rmu_ops = {
 	.read = mv88e6xxx_rmu_reg_read,
 	.write = mv88e6xxx_rmu_reg_write,
@@ -274,7 +334,7 @@ static const struct mv88e6xxx_bus_ops mv88e6xxx_rmu_ops = {
 };
 
 static int mv88e6xxx_rmu_setup_bus(struct mv88e6xxx_chip *chip,
-				      struct net_device *dev)
+				   struct net_device *dev)
 {
 	chip->rmu_ops = &mv88e6xxx_rmu_ops;
 	chip->rmu_dev = dev;

@@ -31,4 +31,7 @@
 int mv88e6xxx_rmu_setup(struct mv88e6xxx_chip *chip);
 int mv88e6xxx_rmu_response(struct mv88e6xxx_chip *chip, struct sk_buff *skb);
 
+int mv88e6xxx_rmu_dump_atu(struct mv88e6xxx_chip *chip, u16 *continue_code,
+			   struct mv88e6xxx_atu_entry *entries);
+
 #endif /* _MV88E6XXX_RMU_H */
