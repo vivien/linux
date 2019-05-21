@@ -29,5 +29,6 @@
 #include "chip.h"
 
 int mv88e6xxx_rmu_setup(struct mv88e6xxx_chip *chip);
+int mv88e6xxx_rmu_response(struct mv88e6xxx_chip *chip, struct sk_buff *skb);
 
 #endif /* _MV88E6XXX_RMU_H */

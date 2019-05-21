@@ -5522,6 +5522,19 @@ static int mv88e6xxx_port_egress_floods(struct dsa_switch *ds, int port,
 	return err;
 }
 
+static bool mv88e6xxx_rcv(struct dsa_switch *ds, struct sk_buff *skb)
+{
+	struct mv88e6xxx_chip *chip = ds->priv;
+
+	/* When this operation is called after a request,
+	 * the mutex must already be held.
+	 */
+	if (mutex_is_locked(&chip->reg_lock))
+		return !!mv88e6xxx_rmu_response(chip, skb);
+
+	return false;
+}
+
 static const struct dsa_switch_ops mv88e6xxx_switch_ops = {
 	.get_tag_protocol	= mv88e6xxx_get_tag_protocol,
 	.setup			= mv88e6xxx_setup,
@@ -5573,6 +5586,7 @@ static const struct dsa_switch_ops mv88e6xxx_switch_ops = {
 	.get_ts_info		= mv88e6xxx_get_ts_info,
 	.devlink_param_get	= mv88e6xxx_devlink_param_get,
 	.devlink_param_set	= mv88e6xxx_devlink_param_set,
+	.rcv			= mv88e6xxx_rcv,
 };
 
 static int mv88e6xxx_register_switch(struct mv88e6xxx_chip *chip)

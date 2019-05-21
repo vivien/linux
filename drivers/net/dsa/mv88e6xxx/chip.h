@@ -8,6 +8,7 @@
 #ifndef _MV88E6XXX_CHIP_H
 #define _MV88E6XXX_CHIP_H
 
+#include <linux/completion.h>
 #include <linux/idr.h>
 #include <linux/if_vlan.h>
 #include <linux/irq.h>
@@ -262,6 +263,15 @@ struct mv88e6xxx_chip {
 	const struct mv88e6xxx_bus_ops *smi_ops;
 	struct mii_bus *bus;
 	int sw_addr;
+
+	/* Register access through the Remote Management Unit */
+	const struct mv88e6xxx_bus_ops *rmu_ops;
+	struct completion rmu_response_received;
+	const unsigned char *rmu_response_data;
+	size_t rmu_response_data_len;
+	struct sk_buff *rmu_response;
+	struct net_device *rmu_dev;
+	u8 rmu_sequence_num;
 
 	/* Handles automatic disabling and re-enabling of the PHY
 	 * polling unit.
