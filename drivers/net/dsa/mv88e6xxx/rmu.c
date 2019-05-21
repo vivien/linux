@@ -237,9 +237,40 @@ static int mv88e6xxx_rmu_reg_write(struct mv88e6xxx_chip *chip,
 	return err;
 }
 
+static int mv88e6xxx_rmu_reg_wait_bit(struct mv88e6xxx_chip *chip,
+				      int dev, int reg, int bit, int val)
+{
+	unsigned char request_data[8];
+	int err;
+
+	request_data[0] = 0x10 | (val ? 0x0c : 0x00) | ((dev >> 3) & 0x03);
+	request_data[1] = ((dev << 5) & 0xe0) | (reg & 0x1f);
+	request_data[2] = bit & 0x0f;
+	request_data[3] = 0x00;
+
+	/* End Of List Command */
+	request_data[4] = 0xff;
+	request_data[5] = 0xff;
+	request_data[6] = 0xff;
+	request_data[7] = 0xff;
+
+	err = mv88e6xxx_rmu_request(chip, MV88E6XXX_RMU_REQUEST_CODE_READ_WRITE, request_data, sizeof(request_data));
+	if (err)
+		return err;
+
+	if (chip->rmu_response_data_len < sizeof(request_data))
+		err = -EINVAL;
+
+	kfree_skb(chip->rmu_response);
+	chip->rmu_response = NULL;
+
+	return err;
+}
+
 static const struct mv88e6xxx_bus_ops mv88e6xxx_rmu_ops = {
 	.read = mv88e6xxx_rmu_reg_read,
 	.write = mv88e6xxx_rmu_reg_write,
+	.wait_bit = mv88e6xxx_rmu_reg_wait_bit,
 };
 
 static int mv88e6xxx_rmu_setup_bus(struct mv88e6xxx_chip *chip,
