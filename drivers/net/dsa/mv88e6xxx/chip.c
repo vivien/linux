@@ -38,6 +38,7 @@
 #include "phy.h"
 #include "port.h"
 #include "ptp.h"
+#include "rmu.h"
 #include "serdes.h"
 #include "smi.h"
 
@@ -1300,14 +1301,6 @@ static int mv88e6xxx_trunk_setup(struct mv88e6xxx_chip *chip)
 	/* Clear all trunk masks and mapping */
 	if (chip->info->global2_addr)
 		return mv88e6xxx_g2_trunk_clear(chip);
-
-	return 0;
-}
-
-static int mv88e6xxx_rmu_setup(struct mv88e6xxx_chip *chip)
-{
-	if (chip->info->ops->rmu_disable)
-		return chip->info->ops->rmu_disable(chip);
 
 	return 0;
 }
