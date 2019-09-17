@@ -15,9 +15,19 @@
 
 /* Offset 0x01: ATU FID Register */
 
-static int mv88e6xxx_g1_atu_fid_write(struct mv88e6xxx_chip *chip, u16 fid)
+static int mv88e6352_g1_atu_fid_write(struct mv88e6xxx_chip *chip, u16 fid)
 {
-	return mv88e6xxx_g1_write(chip, MV88E6352_G1_ATU_FID, fid & 0xfff);
+	u16 val;
+	int err;
+
+	err = mv88e6xxx_g1_read(chip, MV88E6352_G1_ATU_FID, &val);
+	if (err)
+		return err;
+
+	val &= ~MV88E6352_G1_ATU_FID_MASK;
+	val |= fid & MV88E6352_G1_ATU_FID_MASK;
+
+	return mv88e6xxx_g1_write(chip, MV88E6352_G1_ATU_FID, val);
 }
 
 /* Offset 0x0A: ATU Control Register */
@@ -105,6 +115,24 @@ int mv88e6165_g1_atu_set_hash(struct mv88e6xxx_chip *chip, u8 hash)
 	return mv88e6xxx_g1_write(chip, MV88E6XXX_G1_ATU_CTL, val);
 }
 
+static int mv88e6185_g1_atu_dbnum74_write(struct mv88e6xxx_chip *chip, u16 fid)
+{
+	int shift = __bf_shf(MV88E6185_G1_ATU_CTL_DBNUM74_MASK);
+	u16 val;
+	int err;
+
+	/* ATU DBNum[7:4] are located in ATU Control 15:12 */
+	err = mv88e6xxx_g1_read(chip, MV88E6XXX_G1_ATU_CTL, &val);
+	if (err)
+		return err;
+
+	fid >>= 4;
+	val &= ~MV88E6185_G1_ATU_CTL_DBNUM74_MASK;
+	val |= (fid << shift) & MV88E6185_G1_ATU_CTL_DBNUM74_MASK;
+
+	return mv88e6xxx_g1_write(chip, MV88E6XXX_G1_ATU_CTL, val);
+}
+
 /* Offset 0x0B: ATU Operation Register */
 
 static int mv88e6xxx_g1_atu_op_wait(struct mv88e6xxx_chip *chip)
@@ -114,40 +142,20 @@ static int mv88e6xxx_g1_atu_op_wait(struct mv88e6xxx_chip *chip)
 	return mv88e6xxx_g1_wait_bit(chip, MV88E6XXX_G1_ATU_OP, bit, 0);
 }
 
-static int mv88e6xxx_g1_atu_op(struct mv88e6xxx_chip *chip, u16 fid, u16 op)
+static int mv88e6xxx_g1_atu_op(struct mv88e6xxx_chip *chip, u16 op)
 {
 	u16 val;
 	int err;
 
-	/* FID bits are dispatched all around gradually as more are supported */
-	if (mv88e6xxx_num_databases(chip) > 256) {
-		err = mv88e6xxx_g1_atu_fid_write(chip, fid);
-		if (err)
-			return err;
-	} else {
-		if (mv88e6xxx_num_databases(chip) > 64) {
-			/* ATU DBNum[7:4] are located in ATU Control 15:12 */
-			err = mv88e6xxx_g1_read(chip, MV88E6XXX_G1_ATU_CTL,
-						&val);
-			if (err)
-				return err;
+	err = mv88e6xxx_g1_read(chip, MV88E6XXX_G1_ATU_OP, &val);
+	if (err)
+		return err;
 
-			val = (val & 0x0fff) | ((fid << 8) & 0xf000);
-			err = mv88e6xxx_g1_write(chip, MV88E6XXX_G1_ATU_CTL,
-						 val);
-			if (err)
-				return err;
-		} else if (mv88e6xxx_num_databases(chip) > 16) {
-			/* ATU DBNum[5:4] are located in ATU Operation 9:8 */
-			op |= (fid & 0x30) << 4;
-		}
+	val &= ~MV88E6XXX_G1_ATU_OP_MASK;
+	val |= op & MV88E6XXX_G1_ATU_OP_MASK;
+	val |= MV88E6XXX_G1_ATU_OP_BUSY; /* Start the operation */
 
-		/* ATU DBNum[3:0] are located in ATU Operation 3:0 */
-		op |= fid & 0xf;
-	}
-
-	err = mv88e6xxx_g1_write(chip, MV88E6XXX_G1_ATU_OP,
-				 MV88E6XXX_G1_ATU_OP_BUSY | op);
+	err = mv88e6xxx_g1_write(chip, MV88E6XXX_G1_ATU_OP, val);
 	if (err)
 		return err;
 
@@ -156,7 +164,41 @@ static int mv88e6xxx_g1_atu_op(struct mv88e6xxx_chip *chip, u16 fid, u16 op)
 
 int mv88e6xxx_g1_atu_get_next(struct mv88e6xxx_chip *chip, u16 fid)
 {
-	return mv88e6xxx_g1_atu_op(chip, fid, MV88E6XXX_G1_ATU_OP_GET_NEXT_DB);
+	return mv88e6xxx_g1_atu_op(chip, MV88E6XXX_G1_ATU_OP_GET_NEXT_FID);
+}
+
+static int mv88e6250_g1_atu_dbnum54_write(struct mv88e6xxx_chip *chip, u16 fid)
+{
+	int shift = __bf_shf(MV88E6250_G1_ATU_OP_DBNUM54_MASK);
+	u16 val;
+	int err;
+
+	/* ATU DBNum[5:4] are located in ATU Operation 9:8 */
+	err = mv88e6xxx_g1_read(chip, MV88E6XXX_G1_ATU_OP, &val);
+	if (err)
+		return err;
+
+	fid >>= 4;
+	val &= ~MV88E6250_G1_ATU_OP_DBNUM54_MASK;
+	val |= (fid << shift) & MV88E6250_G1_ATU_OP_DBNUM54_MASK;
+
+	return mv88e6xxx_g1_write(chip, MV88E6XXX_G1_ATU_OP, val);
+}
+
+static int mv88e6060_g1_atu_dbnum_write(struct mv88e6xxx_chip *chip, u16 fid)
+{
+	u16 val;
+	int err;
+
+	err = mv88e6xxx_g1_read(chip, MV88E6XXX_G1_ATU_OP, &val);
+	if (err)
+		return err;
+
+	/* ATU DBNum[3:0] are located in ATU Operation 3:0 */
+	val &= ~MV88E6060_G1_ATU_OP_DBNUM_MASK;
+	val |= fid & MV88E6060_G1_ATU_OP_DBNUM_MASK;
+
+	return mv88e6xxx_g1_write(chip, MV88E6XXX_G1_ATU_OP, val);
 }
 
 /* Offset 0x0C: ATU Data Register */
@@ -236,7 +278,43 @@ static int mv88e6xxx_g1_atu_mac_write(struct mv88e6xxx_chip *chip,
 
 /* Address Translation Unit operations */
 
-int mv88e6xxx_g1_atu_getnext(struct mv88e6xxx_chip *chip, u16 fid,
+static int mv88e6xxx_g1_atu_fid_write(struct mv88e6xxx_chip *chip,
+				      struct mv88e6xxx_atu_entry *entry)
+{
+	int err;
+
+	if (entry->fid >= mv88e6xxx_num_databases(chip))
+		return -ERANGE;
+
+	if (mv88e6xxx_num_databases(chip) > 256) {
+		/* 12-bit FIDs have a dedicated ATU FID register */
+		err = mv88e6352_g1_atu_fid_write(chip, entry->fid);
+		if (err)
+			return err;
+	} else {
+		/* 8-bit FIDs store bits 7:4 in ATU Control register 15:12
+		 * 6-bit FIDs store bits 5:4 in ATU Operation register 9:8
+		 */
+		if (mv88e6xxx_num_databases(chip) > 64) {
+			err = mv88e6185_g1_atu_dbnum74_write(chip, entry->fid);
+			if (err)
+				return err;
+		} else if (mv88e6xxx_num_databases(chip) > 16) {
+			err = mv88e6250_g1_atu_dbnum54_write(chip, entry->fid);
+			if (err)
+				return err;
+		}
+
+		/* FID bits 3:0 are stored in ATU Operation register 3:0 */
+		err = mv88e6060_g1_atu_dbnum_write(chip, entry->fid);
+		if (err)
+			return err;
+	}
+
+	return 0;
+}
+
+int mv88e6xxx_g1_atu_getnext(struct mv88e6xxx_chip *chip,
 			     struct mv88e6xxx_atu_entry *entry)
 {
 	int err;
@@ -245,14 +323,18 @@ int mv88e6xxx_g1_atu_getnext(struct mv88e6xxx_chip *chip, u16 fid,
 	if (err)
 		return err;
 
-	/* Write the MAC address to iterate from only once */
+	/* Write the FID and MAC address to iterate from only once */
 	if (!entry->state) {
+		err = mv88e6xxx_g1_atu_fid_write(chip, entry);
+		if (err)
+			return err;
+
 		err = mv88e6xxx_g1_atu_mac_write(chip, entry);
 		if (err)
 			return err;
 	}
 
-	err = mv88e6xxx_g1_atu_op(chip, fid, MV88E6XXX_G1_ATU_OP_GET_NEXT_DB);
+	err = mv88e6xxx_g1_atu_op(chip, MV88E6XXX_G1_ATU_OP_GET_NEXT_FID);
 	if (err)
 		return err;
 
@@ -263,12 +345,16 @@ int mv88e6xxx_g1_atu_getnext(struct mv88e6xxx_chip *chip, u16 fid,
 	return mv88e6xxx_g1_atu_mac_read(chip, entry);
 }
 
-int mv88e6xxx_g1_atu_loadpurge(struct mv88e6xxx_chip *chip, u16 fid,
+int mv88e6xxx_g1_atu_loadpurge(struct mv88e6xxx_chip *chip,
 			       struct mv88e6xxx_atu_entry *entry)
 {
 	int err;
 
 	err = mv88e6xxx_g1_atu_op_wait(chip);
+	if (err)
+		return err;
+
+	err = mv88e6xxx_g1_atu_fid_write(chip, entry);
 	if (err)
 		return err;
 
@@ -280,7 +366,7 @@ int mv88e6xxx_g1_atu_loadpurge(struct mv88e6xxx_chip *chip, u16 fid,
 	if (err)
 		return err;
 
-	return mv88e6xxx_g1_atu_op(chip, fid, MV88E6XXX_G1_ATU_OP_LOAD_DB);
+	return mv88e6xxx_g1_atu_op(chip, MV88E6XXX_G1_ATU_OP_LOAD_PURGE_FID);
 }
 
 static int mv88e6xxx_g1_atu_flushmove(struct mv88e6xxx_chip *chip, u16 fid,
@@ -294,21 +380,25 @@ static int mv88e6xxx_g1_atu_flushmove(struct mv88e6xxx_chip *chip, u16 fid,
 	if (err)
 		return err;
 
+	err = mv88e6xxx_g1_atu_fid_write(chip, entry);
+	if (err)
+		return err;
+
 	err = mv88e6xxx_g1_atu_data_write(chip, entry);
 	if (err)
 		return err;
 
 	/* Flush/Move all or non-static entries from all or a given database */
 	if (all && fid)
-		op = MV88E6XXX_G1_ATU_OP_FLUSH_MOVE_ALL_DB;
+		op = MV88E6XXX_G1_ATU_OP_FLUSH_MOVE_ALL_FID;
 	else if (fid)
-		op = MV88E6XXX_G1_ATU_OP_FLUSH_MOVE_NON_STATIC_DB;
+		op = MV88E6XXX_G1_ATU_OP_FLUSH_MOVE_ALL_NON_STATIC_FID;
 	else if (all)
 		op = MV88E6XXX_G1_ATU_OP_FLUSH_MOVE_ALL;
 	else
-		op = MV88E6XXX_G1_ATU_OP_FLUSH_MOVE_NON_STATIC;
+		op = MV88E6XXX_G1_ATU_OP_FLUSH_MOVE_ALL_NON_STATIC;
 
-	return mv88e6xxx_g1_atu_op(chip, fid, op);
+	return mv88e6xxx_g1_atu_op(chip, op);
 }
 
 int mv88e6xxx_g1_atu_flush(struct mv88e6xxx_chip *chip, u16 fid, bool all)
@@ -359,8 +449,8 @@ static irqreturn_t mv88e6xxx_g1_atu_prob_irq_thread_fn(int irq, void *dev_id)
 
 	mv88e6xxx_reg_lock(chip);
 
-	err = mv88e6xxx_g1_atu_op(chip, 0,
-				  MV88E6XXX_G1_ATU_OP_GET_CLR_VIOLATION);
+	err = mv88e6xxx_g1_atu_op(chip,
+				  MV88E6XXX_G1_ATU_OP_GET_CLEAR_VIOLATION_DATA);
 	if (err)
 		goto out;
 

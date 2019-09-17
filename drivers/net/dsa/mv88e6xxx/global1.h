@@ -42,6 +42,7 @@
 
 /* Offset 0x01: ATU FID Register */
 #define MV88E6352_G1_ATU_FID		0x01
+#define MV88E6352_G1_ATU_FID_MASK	0x0fff
 
 /* Offset 0x02: VTU FID Register */
 #define MV88E6352_G1_VTU_FID		0x02
@@ -107,26 +108,30 @@
 #define MV88E6XXX_G1_STU_DATA_PORT_STATE_FORWARDING	0x0003
 
 /* Offset 0x0A: ATU Control Register */
-#define MV88E6XXX_G1_ATU_CTL		0x0a
-#define MV88E6XXX_G1_ATU_CTL_LEARN2ALL	0x0008
-#define MV88E6161_G1_ATU_CTL_HASH_MASK	0x0003
+#define MV88E6XXX_G1_ATU_CTL			0x0a
+#define MV88E6185_G1_ATU_CTL_DBNUM74_MASK	0xf000
+#define MV88E6161_G1_ATU_CTL_HASH_MASK		0x0003
+#define MV88E6XXX_G1_ATU_CTL_LEARN2ALL		0x0008
 
 /* Offset 0x0B: ATU Operation Register */
-#define MV88E6XXX_G1_ATU_OP				0x0b
-#define MV88E6XXX_G1_ATU_OP_BUSY			0x8000
-#define MV88E6XXX_G1_ATU_OP_MASK			0x7000
-#define MV88E6XXX_G1_ATU_OP_NOOP			0x0000
-#define MV88E6XXX_G1_ATU_OP_FLUSH_MOVE_ALL		0x1000
-#define MV88E6XXX_G1_ATU_OP_FLUSH_MOVE_NON_STATIC	0x2000
-#define MV88E6XXX_G1_ATU_OP_LOAD_DB			0x3000
-#define MV88E6XXX_G1_ATU_OP_GET_NEXT_DB			0x4000
-#define MV88E6XXX_G1_ATU_OP_FLUSH_MOVE_ALL_DB		0x5000
-#define MV88E6XXX_G1_ATU_OP_FLUSH_MOVE_NON_STATIC_DB	0x6000
-#define MV88E6XXX_G1_ATU_OP_GET_CLR_VIOLATION		0x7000
-#define MV88E6XXX_G1_ATU_OP_AGE_OUT_VIOLATION		BIT(7)
-#define MV88E6XXX_G1_ATU_OP_MEMBER_VIOLATION		BIT(6)
-#define MV88E6XXX_G1_ATU_OP_MISS_VIOLATION		BIT(5)
-#define MV88E6XXX_G1_ATU_OP_FULL_VIOLATION		BIT(4)
+#define MV88E6XXX_G1_ATU_OP					0x0b
+#define MV88E6XXX_G1_ATU_OP_BUSY				0x8000
+#define MV88E6XXX_G1_ATU_OP_MASK				0x7000
+#define MV88E6XXX_G1_ATU_OP_NO_OP				0x0000
+#define MV88E6XXX_G1_ATU_OP_FLUSH_MOVE_ALL			0x1000
+#define MV88E6XXX_G1_ATU_OP_FLUSH_MOVE_ALL_NON_STATIC		0x2000
+#define MV88E6XXX_G1_ATU_OP_LOAD_PURGE_FID			0x3000
+#define MV88E6XXX_G1_ATU_OP_GET_NEXT_FID			0x4000
+#define MV88E6XXX_G1_ATU_OP_FLUSH_MOVE_ALL_FID			0x5000
+#define MV88E6XXX_G1_ATU_OP_FLUSH_MOVE_ALL_NON_STATIC_FID	0x6000
+#define MV88E6XXX_G1_ATU_OP_GET_CLEAR_VIOLATION_DATA		0x7000
+#define MV88E6XXX_G1_ATU_OP_MAC_PRI_MASK			0x0700
+#define MV88E6250_G1_ATU_OP_DBNUM54_MASK			0x0300
+#define MV88E6XXX_G1_ATU_OP_AGE_OUT_VIOLATION			0x0080
+#define MV88E6XXX_G1_ATU_OP_MEMBER_VIOLATION			0x0040
+#define MV88E6XXX_G1_ATU_OP_MISS_VIOLATION			0x0020
+#define MV88E6XXX_G1_ATU_OP_FULL_VIOLATION			0x0010
+#define MV88E6060_G1_ATU_OP_DBNUM_MASK				0x000f
 
 /* Offset 0x0C: ATU Data Register */
 #define MV88E6XXX_G1_ATU_DATA					0x0c
@@ -315,9 +320,9 @@ int mv88e6xxx_g1_set_device_number(struct mv88e6xxx_chip *chip, int index);
 int mv88e6xxx_g1_atu_set_learn2all(struct mv88e6xxx_chip *chip, bool learn2all);
 int mv88e6xxx_g1_atu_set_age_time(struct mv88e6xxx_chip *chip,
 				  unsigned int msecs);
-int mv88e6xxx_g1_atu_getnext(struct mv88e6xxx_chip *chip, u16 fid,
+int mv88e6xxx_g1_atu_getnext(struct mv88e6xxx_chip *chip,
 			     struct mv88e6xxx_atu_entry *entry);
-int mv88e6xxx_g1_atu_loadpurge(struct mv88e6xxx_chip *chip, u16 fid,
+int mv88e6xxx_g1_atu_loadpurge(struct mv88e6xxx_chip *chip,
 			       struct mv88e6xxx_atu_entry *entry);
 int mv88e6xxx_g1_atu_flush(struct mv88e6xxx_chip *chip, u16 fid, bool all);
 int mv88e6xxx_g1_atu_remove(struct mv88e6xxx_chip *chip, u16 fid, int port,

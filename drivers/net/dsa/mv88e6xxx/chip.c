@@ -1636,16 +1636,18 @@ static int mv88e6xxx_port_db_load_purge(struct mv88e6xxx_chip *chip, int port,
 	}
 
 	entry.state = 0;
+	entry.fid = fid;
 	ether_addr_copy(entry.mac, addr);
 	eth_addr_dec(entry.mac);
 
-	err = mv88e6xxx_g1_atu_getnext(chip, fid, &entry);
+	err = mv88e6xxx_g1_atu_getnext(chip, &entry);
 	if (err)
 		return err;
 
 	/* Initialize a fresh ATU entry if it isn't found */
 	if (!entry.state || !ether_addr_equal(entry.mac, addr)) {
 		memset(&entry, 0, sizeof(entry));
+		entry.fid = fid;
 		ether_addr_copy(entry.mac, addr);
 	}
 
@@ -1659,7 +1661,7 @@ static int mv88e6xxx_port_db_load_purge(struct mv88e6xxx_chip *chip, int port,
 		entry.state = state;
 	}
 
-	return mv88e6xxx_g1_atu_loadpurge(chip, fid, &entry);
+	return mv88e6xxx_g1_atu_loadpurge(chip, &entry);
 }
 
 static int mv88e6xxx_policy_apply(struct mv88e6xxx_chip *chip, int port,
@@ -2100,10 +2102,11 @@ static int mv88e6xxx_port_db_dump_fid(struct mv88e6xxx_chip *chip,
 	int err;
 
 	addr.state = 0;
+	addr.fid = fid;
 	eth_broadcast_addr(addr.mac);
 
 	do {
-		err = mv88e6xxx_g1_atu_getnext(chip, fid, &addr);
+		err = mv88e6xxx_g1_atu_getnext(chip, &addr);
 		if (err)
 			return err;
 

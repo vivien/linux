@@ -142,6 +142,8 @@ struct mv88e6xxx_info {
 };
 
 struct mv88e6xxx_atu_entry {
+	u16	fid;
+	u8	pri;
 	u8	state;
 	bool	trunk;
 	u16	portvec;
